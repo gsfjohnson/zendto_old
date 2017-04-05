@@ -539,7 +539,11 @@ function submitform() {
             var pc = Math.floor((e.loaded*100)/e.total);
             // pc = Math.min(100, Math.max(0, pc)); // Limit to 0-100 for safety
             document.getElementById('progressinner').style.cssText = 'width: '+ pc + '%; border-radius: 15px '+Math.max((pc-95)*3,0)+'px '+Math.max((pc-95)*3,0)+'px 15px;';
-            document.getElementById('percent').innerText = pc;
+            if (pc == 100) {
+              document.getElementById('percentText').innerText = "Scanning for viruses...";
+            } else {
+              document.getElementById('percentText').innerText = "Uploaded: " + pc.toString() + "%";
+            }
           }, false);
           // Tried adding a download listener to see if that got called
           //xhr.addEventListener("progress", function(e) {
@@ -615,7 +619,7 @@ function submitform() {
       <div id="progressouter" style="display: block; margin-bottom: 10px;">
         <div id="progressinner" style="width:0%;"></div>
       </div>
-      <div id="percentText" style="visibility:visible;">Uploaded: <span id="percent"></span>%</div>
+      <div id="percentText" style="visibility:visible;"></div>
     </div>
   </div>
 </div>

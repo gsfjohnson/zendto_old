@@ -42,7 +42,6 @@ shout ' '
 IAM="$( id -nu )"
 if [ "x$IAM" = "xroot" ]; then
   shout "Good, I am root. Bow down before me..."
-  shout " "
 else
   shout "Sorry, this script must be run as root."
   shout "Please become root with 'sudo su -' or"

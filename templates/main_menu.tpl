@@ -14,13 +14,13 @@
     <td class="UD_nav_label">Drop-off (<i>upload</i>) a file for someone else.</td>
   </tr>
   <tr>
-    <td>{call name=button href="pickup.php" text="Pick-up" width="100%"}</td>
-    <td class="UD_nav_label">Pick-up (<i>download</i>) a file dropped-off for you.</td>
+    <td>{call name=button href="req.php" text="Request a Drop-off" width="100%"}</td>
+    <td class="UD_nav_label">Ask another person to send you some files.</td>
   </tr>
   <tr><td colspan="2">&nbsp;</td></tr>
   <tr>
-    <td>{call name=button href="req.php" text="Request a Drop-off" width="100%"}</td>
-    <td class="UD_nav_label">Ask another person to send you some files.</td>
+    <td>{call name=button href="pickup.php" text="Pick-up" width="100%"}</td>
+    <td class="UD_nav_label">Pick-up (<i>download</i>) a file dropped-off for you.</td>
   </tr>
 {if $isStatsUser}
 	<tr><td colspan="2">&nbsp;</td></tr>

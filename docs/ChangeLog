@@ -1,3 +1,20 @@
+Version 4.26-2
+- Improved "New Dropoff" form so it's much clearer for users.
+  Note: addition to CSS style file swish.css.
+- Switched over "Request a Drop-off" and "Pickup..." buttons in main
+  menu for logged-in users.
+- Added 'upgrade_zendto_conf' to help you upgrade your zendto.conf file.
+- Changed default for 'showRecipsOnPickup' from TRUE to FALSE, and added
+  a short description of what it does.
+- Instead of pausing at 100% while virus-scanning uploads, the progress
+  bar now displays a 'scanning for viruses...' message. This is just a
+  change to new_dropoff.tpl template file.
+- Installer now also creates a complete SSL https version of the website,
+  using a self-signed certificate. It will even offer to redirect all
+  http connections to the https site automatically. All you need to do
+  for production use is get yourself a proper SSL certificate and drop
+  the files in the right places.
+
 Version 4.25-3
 - This version includes several new settings in preferences.php.
   I strongly recommend the use of

@@ -2,7 +2,7 @@
 //
 // ZendTo
 // Copyright (C) 2006 Jeffrey Frey, frey at udel dot edu
-// Copyright (C) 2016 Julian Field, Jules at Zend dot To
+// Copyright (C) 2017 Julian Field, Jules at Zend dot To
 //
 // Based on the original PERL dropbox written by Doke Scott.
 // Developed by Julian Field.
@@ -39,7 +39,7 @@ define('NSSDROPBOX_LIB_DIR', '/opt/zendto/lib/');
 define('NSSDROPBOX_DATA_DIR','/var/zendto/');
 
 // This defines the version number, please do not change
-define('ZTVERSION','4.25');
+define('ZTVERSION','4.26');
 
 // Is this ZendTo or MyZendTo?
 define('MYZENDTO','FALSE');
@@ -89,7 +89,10 @@ $NSSDROPBOX_PREFS = array(
   // If no-one has picked up the dropoff x days before it's going to be
   // auto-deleted, start hassling the recipients daily about it.
   'warnDaysBeforeDeletion' => 3,
-  'showRecipsOnPickup'   => TRUE,
+
+  // Do you want recipients to be able to see the details of the other
+  // recipients and who has picked up the drop-off and from where?
+  'showRecipsOnPickup'   => FALSE,
 
   // The max size for an entire drop-off,
   'maxBytesForDropoff'   => 21474836480, // 20 GBytes = 20*1024*1024*1024

@@ -1,5 +1,5 @@
-%define version 4.25
-%define release 3
+%define version 4.26
+%define release 2
 %define name    zendto
 
 %define is_fedora %(test -e /etc/fedora-release && echo 1 || echo 0)
@@ -164,10 +164,13 @@ if [ "$1" -ge "1" ]; then
   fi
   echo 'Please ensure your /opt/zendto/config/* files are up to date.'
   echo
-  echo 'To help you, there is a tool for upgrading the preferences.php file'
+  echo 'To help you, there are tools for upgrading the preferences.php and
+  echo 'zendto.conf files.'
   echo 'Simply run'
   echo '    /opt/zendto/bin/upgrade_preferences_php'
-  echo 'and it will show you how to use it.'
+  echo 'and'
+  echo '    /opt/zendto/bin/upgrade_zendto_conf'
+  echo 'and they will show you how to use them.'
   echo
 fi
 exit 0
@@ -276,6 +279,7 @@ exit 0
 %attr(755,root,root) /opt/zendto/sbin/UPGRADE/addRegexpsTable.php
 %attr(755,root,root) /opt/zendto/sbin/UPGRADE/fixDropoffTable.php
 %attr(755,root,root) /opt/zendto/sbin/UPGRADE/upgrade_preferences_php
+%attr(755,root,root) /opt/zendto/sbin/UPGRADE/upgrade_zendto_conf
 
 %attr(755,root,root) %dir /opt/zendto/bin
 %attr(755,root,root) /opt/zendto/bin/adduser.php
@@ -285,6 +289,7 @@ exit 0
 %attr(755,root,root) /opt/zendto/bin/setquota.php
 %attr(755,root,root) /opt/zendto/bin/unlockuser.php
 %attr(755,root,root) /opt/zendto/bin/upgrade_preferences_php
+%attr(755,root,root) /opt/zendto/bin/upgrade_zendto_conf
 %doc /opt/zendto/bin/README.txt
 
 /etc/cron.d/zendto
@@ -292,6 +297,8 @@ exit 0
 %attr(755,root,root) /etc/profile.d/zendto.csh
 
 %changelog
+* Mon Apr 03 2017 Jules Field <jules@zend.to>
+- Added upgrade_zendto_conf
 * Tue Mar 14 2017 Jules Field <jules@zend.to>
 - Added new HTML email templates
 * Thu Dec 22 2016 Jules Field <jules@zend.to>

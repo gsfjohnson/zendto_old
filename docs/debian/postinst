@@ -42,10 +42,13 @@ echo
 echo 'If you are upgrading from a previous version, please make sure your'
 echo 'config files in /opt/zendto/config/* are all up to date.'
 echo
-echo 'To help you, there is a tool for upgrading the preferences.php file.'
+echo 'To help you, there are tools for upgrading the preferences.php and'
+echo 'zendto.conf files.'
 echo 'Simply run'
 echo '    sudo /opt/zendto/bin/upgrade_preferences_php'
-echo 'and it will show you how to use it.'
+echo 'and'
+echo '    sudo /opt/zendto/bin/upgrade_zendto_conf'
+echo 'and they will show you how to use them.'
 echo
 
 exit 0
