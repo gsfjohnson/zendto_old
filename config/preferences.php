@@ -39,7 +39,7 @@ define('NSSDROPBOX_LIB_DIR', '/opt/zendto/lib/');
 define('NSSDROPBOX_DATA_DIR','/var/zendto/');
 
 // This defines the version number, please do not change
-define('ZTVERSION','4.20');
+define('ZTVERSION','4.25');
 
 // Is this ZendTo or MyZendTo?
 define('MYZENDTO','FALSE');
@@ -79,6 +79,11 @@ $NSSDROPBOX_PREFS = array(
   'dropboxDirectory'     => NSSDROPBOX_DATA_DIR."dropoffs",
   'logFilePath'          => NSSDROPBOX_DATA_DIR."zendto.log",
 
+  // The root URL of the ZendTo web app in your organisation.
+  // Make this "https" if you can.
+  // It must end with a "/".
+  'serverRoot'           => "http://zendto.soton.ac.uk/",
+
   // Keep drop-offs for x days before auto-deleting them.
   'numberOfDaysToRetain' => 14,
   // If no-one has picked up the dropoff x days before it's going to be
@@ -87,9 +92,9 @@ $NSSDROPBOX_PREFS = array(
   'showRecipsOnPickup'   => TRUE,
 
   // The max size for an entire drop-off,
-  'maxBytesForDropoff'   => 20971520000, // 20 GBytes
+  'maxBytesForDropoff'   => 21474836480, // 20 GBytes = 20*1024*1024*1024
   // and the max size for each individual file in a drop-off
-  'maxBytesForFile'      => 20971520000, // 20 GBytes
+  'maxBytesForFile'      => 21474836480, // 20 GBytes = 20*1024*1024*1024
 
   // If Windows web browsers have problems with the upload progrss bar
   // not working for files > 4GBytes, then set this to FALSE.
@@ -108,6 +113,13 @@ $NSSDROPBOX_PREFS = array(
   // engine for automatic ticket assignment, rather than being sent to the
   // customer support rep who sent the request
   'requestTo'            => '', // Set to '' to disable this override
+
+  // Allow external users (who can't login) to upload files?
+  // Regardless of this setting, they always can if they've been given
+  // a request code.
+  // Setting this to FALSE stops external users sending files that
+  // the recipient had not asked for.
+  'allowExternalUploads' => TRUE,
 
   // Maximum length of a submitted Request Subject, and Short Note
   'maxSubjectLength'     => 100,
@@ -195,14 +207,72 @@ $NSSDROPBOX_PREFS = array(
   // en = English (US)     en-GB = English (UK)
   'recaptchaLanguage'    => 'en-GB',
 
+  //
+  // E-mail settings.
+  //
+
+  // the default email domain when just usernames are supplied
+  'defaultEmailDomain' => 'soton.ac.uk',
+
+  // There are 2 different ways you can send email messages.
+  //
+  // a) If you leave 'SMTPserver' set to '' then the old text-only
+  //    method will be used (the PHP mail() function), and you will
+  //    need to configure sendmail/Postfix yourself.
+  //    NOTE: All the following SMTP settings will be ignored. This is to
+  //          provide backward compatibility with existing installations.
+  // OR
+  // b) If you set 'SMTPserver' to the hostname or IP of your SMTP server,
+  //    then PHPMailer will be used to send all mail to that server.
+  //    PHPMailer has several advantages:
+  //    1. Easier to setup (you've nearly done it)
+  //    2. Can do STARTTLS for encryption
+  //    3. Can authenticate to your SMTP server
+  //    4. Can optionally send HTML versions of emails as well as the
+  //       plain text ones.
+  //       If any of these files in the templates directory exist:
+  //          dropoff_email_html.tpl
+  //          pickup_email_html.tpl
+  //          request_email_html.tpl
+  //          verify_email_html.tpl
+  //       then both text and HTML versions of the relevant email are
+  //       sent.
+  //       These HTML email templates are optional. In each case, if it
+  //       does not exist, just the plain text one will be used.
+  //       Hint: If you want to include images in the HTML, embed them
+  //             directly in the HTML code using a "data:image/..." URI.
+  //             Then even recipients whose email app does not display
+  //             remote images, will still display yours!
+  //
+  // Full hostname or IP address of your SMTP server
+  // 'SMTPserver' => 'smtp.soton.ac.uk',
+  'SMTPserver'   => '', // If blank, will use PHP mail(). See above.
+  // SMTP port number. Usually 25, 465 or 587.
+  'SMTPport'     => 25,
+  // What encryption to use: must be '' (for no encryption) or 'tls'
+  // (or 'ssl' which is deprecated)
+  'SMTPsecure'   => 'tls',
+  // Do you need to authenticate to your SMTP server?
+  // If not, leave SMTPusername set to ''.
+  // If you do, set the username and password.
+  'SMTPusername' => '',
+  'SMTPpassword' => '',
+  // By default we will use the UTF-8 character set, so international
+  // characters work better. The most common alternative is 'iso-8859-1'.
+  'SMTPcharset'  => 'utf-8',
+  // Do you want debug output to appear on your ZendTo site?
+  // Setting this to true will display all the SMTP traffic to/from
+  // your SMTP server. Very useful if mail is not getting through.
+  'SMTPdebug'    => false,
+
   // These are the usernames of the ZendTo administrators at your site.
   // Regardless of how you login, these must be all lower-case.
-  'authAdmins'           => array('admin1','admin2','admin3'),
+  'authAdmins'   => array('admin1','admin2','admin3'),
 
   // These usernames can only view the stats graphs, they cannot do other
   // admin functions. They can up and down load drop-offs, of course.
   // Regardless of how you login, these must be all lower-case.
-  'authStats'            => array('view1','view2','view3'),
+  'authStats'    => array('view1','view2','view3'),
 
   //
   // Settings for the Local SQL-based authenticator.
@@ -289,11 +359,6 @@ $NSSDROPBOX_PREFS = array(
   // 'authLDAPMemberKey'     => 'memberOf',
   // 'authLDAPMemberRole'    => 'cn=zendtoUsers,OU=securityGroups,DC=soton,DC=ac,DC=uk',
 
-  // the default email domain when just usernames are supplied
-  'defaultEmailDomain' => 'soton.ac.uk',
-
-  // You need to change this setting!
-  //
   // This should either be a filename or a regular expression.
   // It defines the domain(s) that un-authenticated users can send
   // files to. Authenticated users can send to everywhere.
@@ -341,11 +406,12 @@ $NSSDROPBOX_PREFS = array(
   // The virus scanner uses ClamAV. You need to get clamav, clamav-db and
   // clamd installed (all available from RPMForge). If you cannot get the
   // permissions working, even after reading the documentation on
-  // www.zend.to, then change the next line to '/usr/bin/clamscan --quiet'
+  // www.zend.to, then change the next line to '/usr/bin/clamscan --stdout'
   // and you will find it easier, though it will be a lot slower to scan.
   // If you need to disable virus scanning altogether, set this to 'DISABLED'.
   // Passing the '--fdpass' option to clamdscan speeds it up a lot!
-  'clamdscan' => '/usr/bin/clamdscan --quiet --fdpass',
+  // The '--stdout' gets the ClamAV output into the ZendTo logfile.
+  'clamdscan' => '/usr/bin/clamdscan --stdout --fdpass',
  
 );
 

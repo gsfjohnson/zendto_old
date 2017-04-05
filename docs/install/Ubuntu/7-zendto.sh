@@ -19,7 +19,7 @@ fi
 shout
 shout =================================================================
 shout
-shout 'Install ZendTo itself (the easy bit)'
+shout 'Install ZendTo itself and configure email sending'
 shout
 shout =================================================================
 shout
@@ -29,12 +29,32 @@ pause
 shout Installing usage statistics graphing package
 apt-get -y install rrdtool
 
+# Need nc for determining SMTP server ports
+if which nc >/dev/null 2>&1; then
+  shout netcat is already installed.
+else
+  shout Installing netcat
+  apt-get -y install netcat-openbsd
+fi
+
+# Do we want to use the repo?
+if [ "x$USEREPO" = "x" ]; then
+  # This setting will be replaced with n if a beta installer
+  USEREPO=y
+fi
+
 shout ' '
 mkdir -p "$SRCSTORE" && cd "$SRCSTORE" || exit 1
 REPOFAILED=no
-shout "Trying to use the ZendTo apt repository."
-curl -O http://zend.to/files/zendto-repo.deb || REPOFAILED=yes
-dpkg -i zendto-repo.deb || REPOFAILED=yes
+if [ "x$USEREPO" = "xy" ]; then
+  shout "Trying to use the ZendTo apt repository."
+  curl -O http://zend.to/files/zendto-repo.deb || REPOFAILED=yes
+  dpkg -i zendto-repo.deb || REPOFAILED=yes
+else
+  # Fake repo failure, as we didn't want to use it anyway
+  REPOFAILED=yes
+fi
+
 if [ "x$REPOFAILED" = "xno" ]; then
   apt-get update
   shout "Now to install ZendTo itself from the apt repository."
@@ -83,19 +103,22 @@ else
   }
 fi
 
-shout
-if [ "$OSVER" -ge "16" ]; then
-  shout "Disabling the 'useRealProgressBar' setting as it"
-  shout "is not supported in PHP 7 and above."
-  pause
-  #  'useRealProgressBar'   => TRUE,
-  # Change the TRUE (or whatever it may say) to FALSE
-  perl -pi -e "s/^(\s*'useRealProgressBar'\s*=>\s*)[^,]+,/\$1FALSE,/" /opt/zendto/config/preferences.php
-fi
+#OBSOLETE for versions 4.21 onwards
+#OBSOLETE shout
+#OBSOLETE if [ "$OSVER" -ge "16" ]; then
+#OBSOLETE   shout "Disabling the 'useRealProgressBar' setting as it"
+#OBSOLETE   shout "is not supported in PHP 7 and above."
+#OBSOLETE   pause
+#OBSOLETE   #  'useRealProgressBar'   => TRUE,
+#OBSOLETE   # Change the TRUE (or whatever it may say) to FALSE
+#OBSOLETE   perl -pi -e "s/^(\s*'useRealProgressBar'\s*=>\s*)[^,]+,/\$1FALSE,/" /opt/zendto/config/preferences.php
+#OBSOLETE fi
 
 
 shout And set up graphing data
 php /opt/zendto/sbin/rrdUpdate.php /opt/zendto/config/preferences.php | grep -v '^[0-9]*x[0-9]*$'
+
+configurePHPMailer
 
 shout
 shout ZendTo itself has been installed.

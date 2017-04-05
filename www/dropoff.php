@@ -110,7 +110,7 @@ if ( $theDropbox = new NSSDropbox($NSSDROPBOX_PREFS) ) {
       }
       if ($authExpiry < time()) {
         $theDropbox->SetupPage();
-        NSSError($smarty->getConfigVariable('ErrorSessionExpired'),"Session Expired");
+        NSSError($smarty->getConfigVars('ErrorSessionExpired'),"Session Expired");
         $smarty->display('new_dropoff.tpl');
         exit;
       }

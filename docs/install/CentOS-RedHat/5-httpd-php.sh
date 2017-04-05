@@ -35,41 +35,27 @@ else
   shout Creating http ZendTo website definition in
   shout $HTTPDCONF
   shout "for ServerName $SERVERNAME"
-  if [ "$OSVER" -lt "7" ]; then
-    cat <<EOHTTPD > $HTTPDCONF
+  cat <<EOHTTPD > $HTTPDCONF
 <VirtualHost *:80>
   ServerName $SERVERNAME
   DocumentRoot "/opt/zendto/www"
   <Directory "/opt/zendto/www">
     Options Indexes FollowSymLinks MultiViews
-    # AllowOverride controls what directives may be placed in .htaccess files.
+    # This controls what directives may be placed in .htaccess files
     AllowOverride All
     # Controls who can get stuff from this server file
-    Order allow,deny
-    Allow from all
-    # This is for newer Apache in RHEL/CentOS 7
-    #Require all granted
+    <IfModule !mod_authz_core.c>
+      # For Apache 2.2:
+      Order allow,deny
+      Allow from all
+    </IfModule>
+    <IfModule mod_authz_core.c>
+      # For Apache 2.4:
+      Require all granted
+    </IfModule>
   </Directory>
 </VirtualHost>
 EOHTTPD
-  else
-    cat <<EOHTTP2 > $HTTPDCONF
-<VirtualHost *:80>
-  ServerName $SERVERNAME
-  DocumentRoot "/opt/zendto/www"
-  <Directory "/opt/zendto/www">
-    Options Indexes FollowSymLinks MultiViews
-    # AllowOverride controls what directives may be placed in .htaccess files.
-    AllowOverride All
-    # Controls who can get stuff from this server file
-    Require all granted
-    # This is for old Apache before RHEL/CentOS 7
-    #Order allow,deny
-    #Allow from all
-  </Directory>
-</VirtualHost>
-EOHTTP2
-  fi
   shout
   shout I will leave you to setup the https one.
   shout Sorry about that.
@@ -92,7 +78,7 @@ pause
 shout Configuring PHP
 pause
 
-# Set configuration in php.ini and apc.ini (5+6) or apcu.ini (7)
+# Set configuration in php.ini
 F=/etc/php.ini
 shout Patching $F
 cp -f $F $F.zendto
@@ -110,20 +96,20 @@ setphpini $F upload_tmp_dir /var/zendto/incoming
 setphpini $F upload_max_filesize 50G
 setphpini $F max_file_uploads 200
 
-for F in apc apcu
-do
-  G="/etc/php.d/${F}.ini"
-  if [ -f $G ]; then
-    shout Patching $G
-    cp -f $G $G.zendto
-    setphpini $G ${F}.ttl 7200
-    setphpini $G ${F}.gc_ttl 7200
-    setphpini $G ${F}.slam_defense 0
-    setphpini $G ${F}.rfc1867 1
-    setphpini $G ${F}.rfc1867_ttl 7200
-    setphpini $G ${F}.max_file_size 50G
-  fi
-done
+#APC for F in apc apcu
+#APC do
+#APC   G="/etc/php.d/${F}.ini"
+#APC   if [ -f $G ]; then
+#APC     shout Patching $G
+#APC     cp -f $G $G.zendto
+#APC     setphpini $G ${F}.ttl 7200
+#APC     setphpini $G ${F}.gc_ttl 7200
+#APC     setphpini $G ${F}.slam_defense 0
+#APC     setphpini $G ${F}.rfc1867 1
+#APC     setphpini $G ${F}.rfc1867_ttl 7200
+#APC     setphpini $G ${F}.max_file_size 50G
+#APC   fi
+#APC done
 
 shout
 shout Your web server and PHP ini files should now be

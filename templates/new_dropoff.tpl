@@ -442,7 +442,7 @@ function validateForm()
   recipient for identity confirmation purposes.</h5>
 {/if}
 
-<form name="dropoff" id="dropoff" method="post" action="{$zendToURL}dropoff.php" enctype="multipart/form-data" onsubmit="return validateForm();">
+<form name="dropoff" id="dropoff" method="post" enctype="multipart/form-data">
 
 <!-- First box about the sender -->
 <div class="UILabel">From:</div> <br class="clear" />
@@ -452,7 +452,6 @@ function validateForm()
 	<input type="checkbox" name="confirmDelivery" id="confirmDelivery" checked="checked"/> <label for="confirmDelivery">Send an email to me when the recipient picks up the file(s).</label>
 </div>
 
-<input type="hidden" name="APC_UPLOAD_PROGRESS" id="progress_key" value="{$progress_id}"/>
 <input type="hidden" name="Action" value="dropoff"/>
 <input type="hidden" id="auth" name="auth" value="{$authKey}"/>
 <input type="hidden" id="req" name="req" value="{$reqKey}"/>
@@ -525,33 +524,101 @@ function validateForm()
 <script type="text/javascript">
 function submitform() {
   if (validateForm()) {
-    window.onbeforeunload=function(){}
-{if $useRealProgressBar}
     showUpload();
-    window.frames.progress_frame.start('{$progress_id}');
-{else}    
-	document.getElementById("progress").style.visibility="visible";
-{/if}
-    // scroll(0,0);
-    document.dropoff.submit();
+    scroll(0,0);
     ignore_unload = false;
+
+    // JKF jQuery code starts here
+    var form = document.forms.namedItem("dropoff");
+    var oData = new FormData(form);
+
+    $.ajax({
+        xhr: function() {
+          var xhr = new window.XMLHttpRequest();
+          xhr.upload.addEventListener("progress", function(e) {
+            var pc = Math.floor((e.loaded*100)/e.total);
+            // pc = Math.min(100, Math.max(0, pc)); // Limit to 0-100 for safety
+            document.getElementById('progressinner').style.cssText = 'width: '+ pc + '%; border-radius: 15px '+Math.max((pc-95)*3,0)+'px '+Math.max((pc-95)*3,0)+'px 15px;';
+            document.getElementById('percent').innerText = pc;
+          }, false);
+          // Tried adding a download listener to see if that got called
+          //xhr.addEventListener("progress", function(e) {
+          //  // alert("download progress has been called, state="+xhr.readyState+" status="+xhr.status);
+          //  // if (e.readyState == 4 && e.status == 200) {
+          //  //   alert("e.status check passed");
+          //  if (xhr.loaded == xhr.total) {
+          //  var dropOffPage = $(xhr.response);
+          //  alert("got progress response");
+          //  $('#container').html(dropOffPage.children('#container').children('#dropoff-inner'));
+          //  $('.ui-helper-hidden-accessible div').hide();
+          //  }
+          //}, false);
+          return xhr;
+        },
+        type: "POST",
+        url: "{$zendToURL}dropoff.php",
+        headers: { Connection: 'close' },
+        data: oData,
+        cache: false,
+        // contentType: "multipart/form-data",
+        contentType: false,
+        processData: false,
+        // This never gets called by Safari
+        complete: function(jqXHR, status) {
+          var dropOffPage = $(jqXHR.responseText);
+          {if $SMTPdebug}
+            // Butt ugly, but you can see the debug output necessary.
+            $('#container').html(dropOffPage);
+          {else}
+            $('#container').html(dropOffPage.children('#container').children('#dropoff-inner'));
+          {/if}
+          $('.ui-helper-hidden-accessible div').hide();
+        }
+    });
+// JKF jQuery code ends
+
+// MB code starts here
+//    var form = document.forms.namedItem("dropoff");
+//    var oData = new FormData(form);
+//    var oReq = new XMLHttpRequest();
+//    oReq.open("POST", "{$zendToURL}dropoff.php", true);
+//    oReq.setRequestHeader("Content-type", "multipart/form-data");
+//    oReq.setRequestHeader("Connection", "close");
+//{*    oReq.onload = function(oEvent) { *}
+//    oReq.onreadystatechange = function(oEvent) {
+//      if (oReq.readyState == 4 && oReq.status == 200) {
+//        var dropOffPage = $(oReq.response);
+//        $('#container').html(dropOffPage.children('#container').children('#dropoff-inner'));
+//        $('.ui-helper-hidden-accessible div').hide();
+//{*      } else { *}
+//{*        alert("Error " + oReq.status + " occurred when trying to upload your file."); *}
+//      }
+//    };
+//
+//    oReq.upload.addEventListener('progress', function(e){
+//      var pc = Math.floor((e.loaded*100)/e.total);
+//      pc = Math.min(100, Math.max(0, pc)); // Limit to 0-100 for safety
+//      document.getElementById('progressinner').style.cssText = 'width: '+ pc + '%; border-radius: 15px '+Math.max((pc-95)*3,0)+'px '+Math.max((pc-95)*3,0)+'px 15px;';
+//      document.getElementById('percent').innerText = pc;
+//    }, false);
+//
+//    oReq.send(oData);
+//{* MB New code ends here *}
   }
-  window.beforeunload = doBeforeUnload;
 }
 </script>
 
-{if $useRealProgressBar}
-<div id="uploadDialog">
-	<h1>Uploading...</h1>
-	<div id="progressContainer">
-		<iframe id="progress_frame" scrolling="no" name="progress_frame" src="progress.php?progress_id={$progress_id}" frameborder="0" style="border: none; height: 80px; width: 350px;"></iframe>
-	</div>
+<div id="uploadDialog" style="display: none;">
+  <h1>Uploading...</h1>
+  <div id="progressBarContainer" style="border: none; height: 80px; width: 350px; margin-left: 25px;">
+    <div id="progressContainer">
+      <div id="progressouter" style="display: block; margin-bottom: 10px;">
+        <div id="progressinner" style="width:0%;"></div>
+      </div>
+      <div id="percentText" style="visibility:visible;">Uploaded: <span id="percent"></span>%</div>
+    </div>
+  </div>
 </div>
-{else}
-    <div id="progress" style="visibility:hidden;width:300px;height:68px;padding:4px;border:2px solid #C01010;background:#FFFFFF;color:#C01010;valign:top;">
-      <center><img src="../images/progress-bar.gif"></center>
-    </div> 
-{/if}
 
 <div class="center"><button onclick="submitform();">Drop off Files</button></div>
 

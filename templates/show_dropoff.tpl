@@ -1,5 +1,7 @@
 {include file="header.tpl"}
 
+<div id="dropoff-inner">
+
 <script type="text/javascript">
 <!--
 
@@ -160,5 +162,7 @@ Claim Passcode: {$claimPasscode}</textarea>
   </tr>
 {/if}
 </table>
+
+</div>
 
 {include file="footer.tpl"}

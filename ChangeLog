@@ -1,3 +1,54 @@
+Version 4.25-3
+- This version includes several new settings in preferences.php.
+  I strongly recommend the use of
+  /opt/zendto/sbin/upgrade_preferences_php
+  to automatically upgrade your existing file.
+  Run it without any arguments and it shows you how to use it.
+- There are changes to zendto.conf for the HTML email templates, and a
+  new error message. Be sure to check your file includes all the extra
+  new settings.
+- Added PHPMailer to enable HTML email, TLS encryption and SMTP auth.
+  NOTE: its use is entirely optional, and disabled by default
+  (so the old email code will be used instead).
+  Note: the HTML email templates (/opt/zendto/templates/*_email_html.tpl)
+  are optional. If they don't exist, it will continue to send only plain-
+  text emails.
+  Read the docs in preferences.php just above the 'SMTPserver' setting
+  for more information and tips.
+- Wrote HTML versions of all the email templates for you to start from.
+  For simplest deployment, copy www/images/email-logo.png and replace it
+  with your organization's logo of the same height. For more details,
+  see the templates. They all have "email" and "html" in their name.
+- Progress bar now works better on 64-bit browsers. Does not require
+  APC or APCu modules. Works fine on Ubuntu 16 and PHP 7.
+  Many thanks to Milan Babel for showing me how to do this!
+- New setting 'allowExternalUploads' allows you to stop external users
+  (who cannot login) being able to send files to people inside your
+  organisation unless they had explicitly sent a request for the file(s).
+  Note this adds a new error message to zendto.conf as well.
+- Installer updated to not build APC/APCu module.
+- Installer updated to configure PHPMailer instead of sendmail/postfix.
+- Upgraded to very latest version of Smarty template engine 3.1.
+- Fixed bug in cron job that sent out reminders containing broken links.
+  NOTE: There is a new setting in preferences.php called 'serverRoot'.
+  This is the root URL of your ZendTo website, and must end with a '/'.
+- Reminder emails for about-to-expire drop-offs are now noticeably
+  different. (There is a slight template change to dropoff_email.tpl)
+- Broken links on "security" page fixed.
+- Bug fixed where logout didn't, on combination of Ubuntu 16 and Chrome.
+- Bug fixed where pickup notification email could refer to invalid
+  email address in very rare circumstances.
+- Installer now copes with EPEL repo pre-installed but disabled.
+- adduser.php now corrects SQLite database file ownership back to that
+  of the web server, in case you ran it before rendering the home page
+  to get the web server to create it with the right permissions.
+- Bug where empty email messages were sent (when 'SMTPserver' was
+  undefined) should now be fixed.
+
+Version 4.20-7
+- ClamAV output now logged whenever virus check fails.
+- Changed preferences.conf clamdscan command to enable logging.
+
 Version 4.20-6
 - Fixed bug where number of days to retrieve the drop-off was missing
   from the email sent out to recipients of a new drop-off.

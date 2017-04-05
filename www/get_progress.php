@@ -1,5 +1,11 @@
 <?php
 
+/*
+   2017-03-14 As of ZendTo version 4.21 and upwards,
+   this file is now obsolete and is not used.
+   But it doesn't do any harm.
+*/
+
 if(isset($_GET['progress_id'])) {
  $id = $_GET['progress_id'];
  $id = preg_replace('/[^a-zA-Z0-9]/', '', $id);

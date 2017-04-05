@@ -28,6 +28,13 @@
 // dropbox filepaths setup for us, beyond simply needing our
 // configuration!
 //
+
+/*
+   2017-03-14 As of ZendTo version 4.21 and upwards,
+   this file is now obsolete and is not used.
+   But it doesn't do any harm.
+*/
+
 require "../config/preferences.php";
 require_once(NSSDROPBOX_LIB_DIR."Smartyconf.php");
 require_once(NSSDROPBOX_LIB_DIR."NSSDropoff.php");

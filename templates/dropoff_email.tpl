@@ -1,6 +1,11 @@
 This is an automated message sent to you by the {#ServiceTitle#} service. 
 
-{$senderName} ({$senderEmail}) has dropped-off {if $fileCount eq 1}a file{else}{$fileCount} files{/if} for you.
+{if $isReminder}****
+This is a reminder about a drop-off sent to you, that no one has picked up.
+The drop-off will expire in {$timeLeft} after which it will be automatically deleted.
+****
+
+{/if}{$senderName} ({$senderEmail}) has dropped-off {if $fileCount eq 1}a file{else}{$fileCount} files{/if} for you.
 
 IF YOU TRUST THE SENDER, and are expecting to receive a file from them, you may choose to retrieve the drop-off by clicking the following link (or copying and pasting it into your web browser):
 

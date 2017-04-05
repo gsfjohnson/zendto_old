@@ -282,7 +282,7 @@ class NSSADAuthenticator extends NSSAuthenticator {
               }
             }
             if (!$authorisationPassed) {
-              NSSError($smarty->getConfigVariable('ErrorUnauthorizedUser'),'Authorisation Failed');
+              NSSError($smarty->getConfigVars('ErrorUnauthorizedUser'),'Authorisation Failed');
               //NSSError('This user is not permitted to use this service.','Authorisation Failed');
               // We found the user okay, but he wasn't a group member
               $result = -69;
@@ -464,7 +464,7 @@ class NSSADAuthenticator extends NSSAuthenticator {
                 }
               }
               if (!$authorisationPassed) {
-                NSSError($smarty->getConfigVariable('ErrorUnauthorizedUser'),'Authorisation Failed');
+                NSSError($smarty->getConfigVars('ErrorUnauthorizedUser'),'Authorisation Failed');
                 $result = -69;
                 if ( $ldapConn ) {
                   ldap_close($ldapConn);

@@ -29,7 +29,7 @@
 // configuration!
 //
 require "../config/preferences.php";
-require "autoload.php";
+require "RCautoload.php";
 require_once("ayah.php");
 require_once(NSSDROPBOX_LIB_DIR."Smartyconf.php");
 require_once(NSSDROPBOX_LIB_DIR."NSSDropoff.php");
@@ -64,9 +64,13 @@ if ( $theDropbox = new NSSDropbox($NSSDROPBOX_PREFS) ) {
         exit(0);
       } else {
         if ( ! $theDropbox->authorizedUser() ) {
-          NSSError($smarty->getConfigVariable('ErrorRequestUsed'),"Verify error");
+          if ( $theDropbox->allowExternalUploads() ) {
+            NSSError($smarty->getConfigVars('ErrorRequestUsed'),"Verify error");
+          } else {
+            NSSError($smarty->getConfigVars('ErrorRequestUsedNoUploads'),"Request Code error");
+          }
         } else {
-          NSSError($smarty->getConfigVariable('ErrorRequestUsedLogin'),"Request Code error");
+          NSSError($smarty->getConfigVars('ErrorRequestUsedLogin'),"Request Code error");
         }
       }
     }
@@ -81,33 +85,38 @@ if ( $theDropbox = new NSSDropbox($NSSDROPBOX_PREFS) ) {
 
       $captcha = $theDropbox->captcha();
       $resp = FALSE;
-      if ($captcha === 'areyouahuman') {
-        $resp = $ayah->scoreResult();
-      } elseif ($captcha === 'disabled') {
-        // Must be disabled
-        $resp = TRUE;
-      } else {
-        // Using Google or an old version without this set
-        $reCaptchaPrivateKey = $theDropbox->recaptchaPrivateKey();
-        if ($reCaptchaPrivateKey == 'disabled') {
+      // If they aren't authorised and we aren't allowing external
+      // users to upload (except with a request code), then we
+      // don't do any captcha stuff anyway.
+      if ( $theDropbox->allowExternalUploads() ) {
+        if ($captcha === 'areyouahuman') {
+          $resp = $ayah->scoreResult();
+        } elseif ($captcha === 'disabled') {
+          // Must be disabled
           $resp = TRUE;
         } else {
-          // Old version 1 code.
-          // $resp = recaptcha_check_answer($reCaptchaPrivateKey,
-          //                                getClientIP(),
-          //                                $_POST["g-recaptcha-response"]);
-          $recaptcha = new \ReCaptcha\ReCaptcha($reCaptchaPrivateKey);
-          $rcresponse = $recaptcha->verify($_POST["g-recaptcha-response"],
-                                           getClientIP());
-          if ($rcresponse->isSuccess()) {
+          // Using Google or an old version without this set
+          $reCaptchaPrivateKey = $theDropbox->recaptchaPrivateKey();
+          if ($reCaptchaPrivateKey == 'disabled') {
             $resp = TRUE;
-          }
-          if (!$resp) {
-            foreach ($rcresponse->getErrorCodes() as $code) {
-              if ($code == "missing-input-response") {
-                $code = "I do not think you are a real person.";
+          } else {
+            // Old version 1 code.
+            // $resp = recaptcha_check_answer($reCaptchaPrivateKey,
+            //                                getClientIP(),
+            //                                $_POST["g-recaptcha-response"]);
+            $recaptcha = new \ReCaptcha\ReCaptcha($reCaptchaPrivateKey);
+            $rcresponse = $recaptcha->verify($_POST["g-recaptcha-response"],
+                                             getClientIP());
+            if ($rcresponse->isSuccess()) {
+              $resp = TRUE;
+            }
+            if (!$resp) {
+              foreach ($rcresponse->getErrorCodes() as $code) {
+                if ($code == "missing-input-response") {
+                  $code = "I do not think you are a real person.";
+                }
+                NSSError($code, "Are you a real person?");
               }
-              NSSError($code, "Are you a real person?");
             }
           }
         }
@@ -190,8 +199,12 @@ if ( $theDropbox = new NSSDropbox($NSSDROPBOX_PREFS) ) {
   $smarty->assign('senderName', ($theDropbox->authorizedUser() ? $theDropbox->authorizedUserData("displayName") : (isset($_POST['senderName'])?htmlentities(paramPrepare($_POST['senderName'])):NULL)));
   $smarty->assign('senderOrg', ($theDropbox->authorizedUser() ? $theDropbox->authorizedUserData("organization") : (isset($_POST['senderOrganization'])?htmlentities(paramPrepare($_POST['senderOrganization'])):NULL)));
   $smarty->assign('senderEmail', ($theDropbox->authorizedUser() ? strtolower($theDropbox->authorizedUserData("mail")) : (isset($_POST['senderEmail'])?htmlentities(paramPrepare($_POST['senderEmail'])):NULL)));
+  $smarty->assign('allowUploads', TRUE);
 
   if ( ! $theDropbox->authorizedUser() ) {
+    // Are uploads allowed by external users? (other than request codes)
+    $smarty->assign('allowUploads', $theDropbox->allowExternalUploads());
+    // Set up the CAPTCHA
     $captcha = $theDropbox->captcha();
     if ($captcha === 'areyouahuman') {
       $smarty->assign('recaptchaHTML', $ayah->getPublisherHTML());

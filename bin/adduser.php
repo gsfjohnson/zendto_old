@@ -64,6 +64,24 @@ if ( $theDropbox = new NSSDropbox($NSSDROPBOX_PREFS, FALSE, TRUE) ) {
   $result = $theDropbox->database->DBAddLocalUser($username, $password,
                                                   $email, $realname, $org, $quota);
 
+  // To save newbies trouble, if they are using SQLite (any version)
+  // then force the ownership of the SQLite database back to that of
+  // the web server if it has become owned by root.
+  // This happens when people create a new local user, before they
+  // forced the web server to create the database file by displaying
+  // the app's home page in a browser.
+  if (preg_match('/^SQLite/', SqlBackend)) {
+    $sqlite = $NSSDROPBOX_PREFS['SQLiteDatabase'];
+    $oldowner = fileowner($sqlite);
+    $oldgroup = filegroup($sqlite);
+    if ($oldowner == 0 || $oldgroup == 0) {
+      $newowner = fileowner($NSSDROPBOX_PREFS['dropboxDirectory']);
+      $newgroup = filegroup($NSSDROPBOX_PREFS['dropboxDirectory']);
+      chown($sqlite, $newowner);
+      chgrp($sqlite, $newgroup);
+    }
+  }
+
   if ($result == '') {
     $passprint = 'secret';
     if ($password == '') {

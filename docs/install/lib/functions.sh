@@ -2,9 +2,11 @@
 # This file is included by the top-level script.
 # Do not try to run it on its own, it won't help you.
 
-ARG="$1"
+ARG1="$1"
+ARG2="$2"
 HERE="$(pwd)"
 TEMPFILE=/tmp/zendtopatching
+ZTPREFS=/opt/zendto/config/preferences.php
 ARCH="$(uname -m)"
 # This tomfoolery is to handle people doing "sudo install.sh"
 # which is just WRONG.
@@ -49,7 +51,7 @@ else
 fi
 
 # Process the optional '--defaults' command-line argument.
-if [ "x$ARG" = "x--defaults" ]; then
+if [ "x$ARG1" = "x--defaults" -o "x$ARG2" = "x--defaults" ]; then
   # We were told what to do.
   ALLDEFAULTS=y
   shout ' '
@@ -64,6 +66,17 @@ else
   fi
 fi
 
+# Process the optional '--norepo' command-line argument.
+USEREPO=''
+if [ "x$ARG1" = "x--norepo" -o "x$ARG2" = "x--norepo" ]; then
+  # We were told what to do.
+  shout
+  shout 'I will not attempt to use the yum/apt repo.'
+  shout
+  pause
+  USEREPO=n
+fi
+
 # Prompt the user for a response. Pass in
 # 1. prompt string
 # 2. default default value to be used if the default is blank
@@ -74,15 +87,25 @@ prompt() {
   DEFDEF="$2"
   DEF="$3"
 
+  # No suggested value? Use the "default default"
   if [ "x$DEF" = "x" ]; then
     DEF="$DEFDEF"
   fi
 
+  # No default default either? Then don't tell the user anything.
+  # Pressing return will result in an empty answer, which may be
+  # what we want.
+  if [ "x$DEF" = "x" ]; then
+    DEFOFFERED=''
+  else
+    DEFOFFERED=" [Default is $DEF]"
+  fi
+
   if [ "$ALLDEFAULTS" = "y" ]; then
-    echo -e "\033[1m$PROMPT [Default is $DEF]:\033[0m $DEF" 1>&2
+    echo -e "\033[1m$PROMPT$DEFOFFERED:\033[0m $DEF" 1>&2
     ANSWER="$DEF"
   else
-    echo -ne "\033[1m$PROMPT [Default is $DEF]:\033[0m " 1>&2
+    echo -ne "\033[1m$PROMPT$DEFOFFERED:\033[0m " 1>&2
     read ANSWER
     if [ "x$ANSWER" = "x" ]; then
       ANSWER="$DEF"
@@ -202,9 +225,11 @@ if [ "$OS" = "unknown" ]; then
   OS="$(prompt "Am I running redhat, centos or ubuntu" "centos" "$OS")"
   OS="$(echo "$OS" | tr '[:upper:]' '[:lower:]')" # Lower-case it
 fi
-OSVER="$(prompt "$OS major release number" "5" "$OSVER")"
+# Capitalise first letter of OS
+PRETTYOS="$( tr '[:lower:]' '[:upper:]' <<< ${OS:0:1})$(tr '[:upper:]' '[:lower:]' <<< ${OS:1} )"
+OSVER="$(prompt "$PRETTYOS major release number" "5" "$OSVER")"
 ARCH="$(prompt "Architecture" "x86_64" "$ARCH")"
-shout "I am running $OS release $OSVER on $ARCH"
+shout "I am running $PRETTYOS release $OSVER on $ARCH"
 
 # Is SELinux installed?
 # If so, is it enabled?
@@ -336,13 +361,96 @@ setBool() {
   setsebool -P "$BOOL" "$TRUEFALSE"
 }
 
+# Set a key in preferences.php to the supplied value.
+# The value may need quotes around it.
+# This has to cope with commented out values,
+# comments at the end of the line,
+# quoted and unquoted values for the setting,
+# and any variations in whitespace.
+setPrefphp () {
+    KEY="$1"
+    QUOTED="$2"
+    VALUE="$3"
+    if [ "x$QUOTED" = "xnotquoted" ]; then
+        perl -pi -e "s/^(\s*'$KEY'\s*=>\s*)[^,]*,/\${1}$VALUE,/" "$ZTPREFS"
+    else
+        perl -pi -e "s/^(\s*'$KEY'\s*=>\s*')[^']*',/\${1}$VALUE',/" "$ZTPREFS"
+    fi
+}
+
+# Do all the user interaction required to configure PHPMailer in
+# preferences.php.
+# This is here as it's identical for CentOS/RHEL & Ubuntu.
+# The settings required are:
+# 'SMTPserver'   => '', // Blank, so will use PHP mail(). See above.
+# 'SMTPport'     => 25,
+# 'SMTPsecure'   => 'tls',
+# 'SMTPusername' => '',
+# 'SMTPpassword' => '',
+configurePHPMailer() {
+  shout
+  shout Now we need to tell ZendTo how to send email.
+  shout This is done by giving it the details of your
+  shout organisation\'s SMTP server.
+  shout
+  SMTPserver="smtp.$(hostname --domain)"
+  SMTPserver="$(prompt "Fully-qualified name of your SMTP server" "smtp.your-domain.com" "$SMTPserver")"
+  setPrefphp SMTPserver quoted "$SMTPserver"
+
+  # Try to contact SMTP server on 3 most likely ports: 25, 587, 465
+  PORTS=''
+  for P in 25 587 465; do
+    # Some nc/ncat commands don't have the nice -z
+    if nc -w 1 "$SMTPserver" $P </dev/null >/dev/null 2>&1; then
+      PORTS="${PORTS}${P} "
+    fi
+  done
+  if [ "x$PORTS" != "x" ]; then
+    shout Your SMTP server is listening on these ports: $PORTS
+    SMTPport="$( echo $PORTS | cut -d\  -f1 )"
+  else
+    shout 'Your SMTP server does not respond to any of the standard ports'
+    shout '(25, 587, 465). You probably got the hostname wrong, which you'
+    shout 'will need to fix in preferences.php later. For now, assume it'
+    shout 'will be using port 25 unless you know otherwise.'
+    SMTPport=''
+  fi
+  SMTPport="$(prompt "SMTP port number (almost always 25, 587 or 465)" "25" "$SMTPport")"
+  setPrefphp SMTPport notquoted "$SMTPport"
+
+  if yesno "Does your SMTP server provide TLS-based secure SMTP?" "y"; then
+    SMTPsecure='tls'
+  else
+    SMTPsecure=''
+  fi
+
+  AUTHDEFAULT=n
+  SMTPusername=''
+  SMTPpassword=''
+  if [ "x$SMTPport" = "x587" ]; then
+    # They are using "submission" port, which usually requires auth
+    AUTHDEFAULT=y
+  fi
+  if yesno "Does you need to authenticate to your SMTP server to send email?" "$AUTHDEFAULT"; then
+    SMTPusername="$(prompt "SMTP authentication username (empty value will disable SMTP auth)" "" "$SMTPusername")"
+    SMTPpassword="$(prompt "SMTP authentication password" "" "$SMTPpassword")"
+  fi
+  setPrefphp SMTPusername quoted "$SMTPusername"
+  setPrefphp SMTPpassword quoted "$SMTPpassword"
+
+  shout
+}
+
+
 # Mark that we have sourced this file.
 ZTFUNCTIONS=1
 
 #
 # These are all the things we need to export to subsequent parts of the install.
 #
-export HERE TEMPFILE ARCH SRCSTORE OS OSVER SELINUX SELINUXPOLICY ZTFUNCTIONS ALLDEFAULTS
+export HERE TEMPFILE ARCH SRCSTORE OS OSVER SELINUX SELINUXPOLICY
+export ZTFUNCTIONS ALLDEFAULTS USEREPO ZTPREFS
 export -f shout prompt yesno runIfYes pause installSrpmAndDeps
 export -f isyum isapt setCfIni setphpini setmaincf setBool
+export -f setPrefphp configurePHPMailer
 

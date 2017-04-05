@@ -5,6 +5,7 @@
 
 function validateForm()
 {
+{if $allowUploads}
   if ( document.dropoff.req.value != "" ) {
     return true;
   }
@@ -14,14 +15,26 @@ function validateForm()
     return false;
   }
   if ( document.dropoff.senderOrganization.value == "" ) {
-    alert("Please enter your organisation before submitting.");
-    document.dropoff.senderOrganization.focus();    return false;
-  }  if ( document.dropoff.senderEmail.value == "" ) {
+    document.dropoff.senderOrganization.value = "-";
+    // alert("Please enter your organisation before submitting.");
+    // document.dropoff.senderOrganization.focus();
+    // return false;
+  }
+  if ( document.dropoff.senderEmail.value == "" ) {
     alert("Please enter your email address before submitting.");
-    document.dropoff.senderEmail.focus();    return false;
+    document.dropoff.senderEmail.focus();
+    return false;
   }
   
   return true;
+{else}
+  if ( document.dropoff.req.value == "" ) {
+    alert("Please enter your request code before submitting.");
+    document.dropoff.req.focus();
+    return false;
+  }
+  return true;
+{/if}
 }
 
 //-->
@@ -35,18 +48,29 @@ function validateForm()
         <tr><td width="100%">
           <table class="UD_form" width="100%" cellpadding="4">
             <tr class="UD_form_header"><td colspan="2">
+{if $allowUploads}
               <h4>Information about the Sender</h4>
+{else}
+              <h4>Your Request Code</h4>
+{/if}
             </td></tr>
 
 {if $verifyFailed}
+  {if $allowUploads}
             <tr><td colspan="2"><b>You did not complete the form, or you failed the "Am I A Real Person?" test.</b></td></tr>
+  {/if}
 {/if}
 
+{if $allowUploads}
             <tr><td colspan="2">If you have been given a "<b>Request Code</b>" then just enter it here and click the button at the bottom of this form.</td></tr>
+{else}
+            <td><td colspan="2">Please enter the "<b>Request Code</b>" you have been given.</td></tr>
+{/if}
             <tr>
               <td align="right"><label for="req">Request Code:</label></td>
               <td width="60%"><input type="text" id="req" name="req" size="45" value="" class="UITextBox" /></td>
             </tr>
+{if $allowUploads}
             <tr><td colspan="2"><hr style="width: 80%;"/></td></tr>
             <tr><td colspan="2">If you do not have a "Request Code" then please complete the rest of this form:</td></tr>
 
@@ -104,7 +128,18 @@ function validateForm()
               {call name=button relative=FALSE href="javascript:submitform();" text="Send confirmation"}
   {/if}
             </tr>
-{else}
+{else} {* they are an authorised user, so no captcha *}
+            <tr class="footer"><td colspan="2" align="center">
+              <script type="text/javascript">
+                function submitform() {
+                  if (validateForm()) { document.dropoff.submit(); }
+                }
+              </script>
+              {call name=button relative=FALSE href="javascript:submitform();" text="Next"}
+            </tr>
+
+{/if}
+{else} {* allowUploads = FALSE *}
             <tr class="footer"><td colspan="2" align="center">
               <script type="text/javascript">
                 function submitform() {
@@ -121,5 +156,38 @@ function validateForm()
 
       </table>
 </form>
+
+{* if they are allowed to upload, accelerate the form filling *}
+<script type="text/javascript">
+<!--
+{if $allowUploads}
+  {if $isAuthorizedUser}
+    // Set the focus to the organization, and let them
+    // click Next by pressing Return.
+    $(document).ready(function() {
+      $('#senderOrganization').focus();
+    });
+    $('#senderOrganization').keypress(function (e) {
+      var key = e.which;
+      if (key == 13) { // Return
+        e.preventDefault();
+        if (validateForm()) { document.dropoff.submit(); }
+        return false;
+      }
+    });
+  {else}
+    // Set focus the their name (1st field)
+    $(document).ready(function() {
+      $('#senderName').focus();
+    });
+  {/if}
+{else} {* only the request code box is visible *}
+  // Set focus to the request code (only field)
+  $(document).ready(function() {
+    $('#req').focus();
+  });
+{/if}
+-->
+</script>
 
 {include file="footer.tpl"}

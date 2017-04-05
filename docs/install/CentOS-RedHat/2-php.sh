@@ -36,16 +36,29 @@ if [ "$OSVER" -le "5" ]; then
 fi
 
 SPECPATCH=$HERE/lib/php53.spec.SQLite.patch
-PECLPATCH=$HERE/lib/apc-zendto.patch
+#APC PECLPATCH=$HERE/lib/apc-zendto.patch
 
 REMOVE="$(rpm -qa | grep '^php[0-9]*-common')"
 if [ "x$REMOVE" = "x" ]; then
   shout Good, no PHP packages installed.
 else
-  shout Need to remove any existing PHP packages first,
-  shout along with packages with depend on PHP, sorry.
-  pause 10
-  yum -y remove $REMOVE
+  shout I need to remove any existing PHP packages first,
+  shout along with packages with depend on PHP, sorry:
+  yes n | yum --color=never remove "$REMOVE" | \
+  sed -e '1,/^Removing[: ]/ d; /^$/ d; /^Removing for depend/ d; /^Transaction Summary/,$ d' | \
+  sort -k 1,1 | \
+  while IFS='$\n' read -r p; do
+    shout "$p"
+    if [ "x$p" = "xzendto" ]; then
+      shout '    This should not destroy your ZendTo configuration,'
+      shout '    but I STRONGLY advise pressing Ctrl-C to stop now'
+      shout '    and take a backup if you have not already done so.'
+    fi
+  done
+  shout
+  shout I am about to remove all those packages.
+  pause 20
+  yum -y remove "$REMOVE"
 fi
 pause
 shout Need to install a few extra tools.
@@ -53,6 +66,12 @@ yum -y install yum-utils rpm-build
 yum -y install libmcrypt-devel
 pause
 
+if [ -d "$SRCSTORE" ]; then
+  shout Deleting the contents of "$SRCSTORE"
+  shout so I get a clean build.
+  pause
+  rm -rf "$SRCSTORE"
+fi
 mkdir -p "$SRCSTORE" && cd "$SRCSTORE" || exit 1
 
 # Find the latest major release of PHP (5: in EPEL; 6: in CentOS; 7: in CentOS/RHEL).
@@ -374,114 +393,114 @@ shout
 shout Installing php-pear
 yum -y install php-pear
 
-#
-# Now do the php-pecl-apc[u] download/build/install
-#
-
-# What is the package name?
-if [ "$OSVER" -ge "7" ]; then
-  PECLNAME=php-pecl-apcu
-else
-  PECLNAME=php-pecl-apc
-fi
-
-# Fetch and install the source needed.
-shout
-shout Fetching and building $PECLNAME
-cd "$SRCSTORE" || exit 1
-yumdownloader --source $PECLNAME
-SRC="$(ls -d "$PECLNAME"-*.src.rpm | tail -1)"
-SRC="$(prompt "$PECLNAME SRPM (.src.rpm) filename" "" "$SRC")"
-SPECFILE="$(rpm -qlp "$SRC" | grep '^'"$PECLNAME"'.*\.spec$')"
-shout "SRPM file is $SRC"
-shout "spec file is $SPECFILE"
-if [ "x$NAME" != "xphp" ]; then
-  # Cannot use installSrpm... as need to patch spec file in the middle
-  rpm -Uvh "$SRC" 2> >(grep -iv 'warning:.*does not exist')
-  shout "Patching $SPECFILE to fix PHP build dependencies"
-  perl -pi.bak -e 's/php-devel/'"$NAME"'-devel/g if /^BuildRequires:/i;' "$TOPDIR/SPECS/$SPECFILE"
-  yum -y install httpd-devel
-else
-  # Use nice function whenever we can
-  installSrpmAndDeps "$SRC" "$TOPDIR/SPECS/$SPECFILE"
-fi
-cd "$TOPDIR/SPECS" || exit 1
-
-# Set the Release: version number in the spec file
-# so we know it's a custom one for ZendTo.
-shout Setting its version number for easy id.
-perl -pi.bak -e 's/(^Release:.*?)(%\{.*$)/$1.zendto$2/;' "$SPECFILE"
-
-# Work out the distribution and build new RPM
-shout Now to build the new $PECLNAME RPM
-DIST="$(yum info "$PECLNAME" | grep '^Release' | sed -e 's/^.*:.*\(\..*\)$/\1/')"
-DIST="$(prompt "Distribution to build RPM for" ".el7" "$DIST")"
-shout "Name of apc package is $PECLNAME"
-shout "Name of distribution is $DIST"
-pause
-
-if rpmbuild -bb --define "dist $DIST" "$SPECFILE"; then
-  shout 'Yay! I built the RPM for '$PECLNAME'!'
-else
-  shout 'Building the RPM for '$PECLNAME' failed.'
-  shout 'Do not worry, I have a patch which might fix this.'
-  shout 'I will apply it and try again.'
-  pause
-  # Patch the spec file for the APC patch
-  cp -f "$PECLPATCH" "$TOPDIR/SOURCES"
-  rm -rf $TEMPFILE
-  # Add the Patchxxx:line to the end of the list of such lines
-  LINE="$(grep -nE '^Patch[0-9]+:' "$SPECFILE" | tail -n 1 | cut -d: -f1)"
-  head -n "$LINE" "$SPECFILE" > "$TEMPFILE"
-  echo 'Patch999: apc-zendto.patch' >> "$TEMPFILE"
-  LINE=$((LINE+1))
-  tail -n "+$LINE" "$SPECFILE" >> "$TEMPFILE"
-  mv "$SPECFILE" "${SPECFILE}.bak1"
-  cp "$TEMPFILE" "$SPECFILE"
-  rm -f "$TEMPFILE"
-  # Add the %patch lines to the end of the list of such lines
-  LINE="$(grep -nE '^%patch[0-9]+' "$SPECFILE" | tail -n 1 | cut -d: -f1)"
-  head -n "$LINE" "$SPECFILE" > "$TEMPFILE"
-  echo '%patch999 -p1 -b .apc-zendto' >> "$TEMPFILE"
-  LINE=$((LINE+1))
-  tail -n "+$LINE" "$SPECFILE" >> "$TEMPFILE"
-  mv "$SPECFILE" "${SPECFILE}.bak2"
-  cp "$TEMPFILE" "$SPECFILE"
-  rm -f "$TEMPFILE"
-
-  if rpmbuild -bb --define "dist $DIST" "$SPECFILE"; then
-    shout 'Yay! I built the RPM for '"$PECLNAME"'!'
-  else
-    shout 'Something went wrong, and the RPMs for '"$PECLNAME"' were'
-    shout 'not built successfully. Please go back through the output from this'
-    shout 'and try to fix what went wrong (usually something that should'
-    shout 'be installed but was not).'
-    shout 'Then run this script again.'
-    shout 'Exiting...'
-    exit 1
-  fi
-fi
-pause
-
-shout Now to install the new $PECLNAME RPM
-
-# Assuming that all worked, the RPMs are in $TOPDIR/RPMS/$ARCH
-# So let's install them!
-cd "$TOPDIR/RPMS/$ARCH" || exit 1
-# Work out what comes after php-pecl-apc-....... in the RPM filenames.
-SUFFIX="$(ls "$PECLNAME"-[0-9]*."$ARCH".rpm | tail -1 | sed -e 's/^'"$PECLNAME"'-//')"
-shout "RPM filename suffix is $SUFFIX"
-if rpm -Uvh "$PECLNAME-$SUFFIX"; then
-  shout 'Yay! We installed the correct '"$PECLNAME"'!'
-else
-  shout 'Something went wrong, and the RPM for '"$PECLNAME"' could not be installed.'
-  shout 'Please go back through the output from this'
-  shout 'and try to fix what went wrong (usually something that should'
-  shout 'be installed but was not).'
-  shout 'Then run this script again.'
-  shout 'Exiting...'
-  exit 1
-fi
+#APC #
+#APC # Now do the php-pecl-apc[u] download/build/install
+#APC #
+#APC 
+#APC # What is the package name?
+#APC if [ "$OSVER" -ge "7" ]; then
+#APC   PECLNAME=php-pecl-apcu
+#APC else
+#APC   PECLNAME=php-pecl-apc
+#APC fi
+#APC 
+#APC # Fetch and install the source needed.
+#APC shout
+#APC shout Fetching and building $PECLNAME
+#APC cd "$SRCSTORE" || exit 1
+#APC yumdownloader --source $PECLNAME
+#APC SRC="$(ls -d "$PECLNAME"-*.src.rpm | tail -1)"
+#APC SRC="$(prompt "$PECLNAME SRPM (.src.rpm) filename" "" "$SRC")"
+#APC SPECFILE="$(rpm -qlp "$SRC" | grep '^'"$PECLNAME"'.*\.spec$')"
+#APC shout "SRPM file is $SRC"
+#APC shout "spec file is $SPECFILE"
+#APC if [ "x$NAME" != "xphp" ]; then
+#APC   # Cannot use installSrpm... as need to patch spec file in the middle
+#APC   rpm -Uvh "$SRC" 2> >(grep -iv 'warning:.*does not exist')
+#APC   shout "Patching $SPECFILE to fix PHP build dependencies"
+#APC   perl -pi.bak -e 's/php-devel/'"$NAME"'-devel/g if /^BuildRequires:/i;' "$TOPDIR/SPECS/$SPECFILE"
+#APC   yum -y install httpd-devel
+#APC else
+#APC   # Use nice function whenever we can
+#APC   installSrpmAndDeps "$SRC" "$TOPDIR/SPECS/$SPECFILE"
+#APC fi
+#APC cd "$TOPDIR/SPECS" || exit 1
+#APC 
+#APC # Set the Release: version number in the spec file
+#APC # so we know it's a custom one for ZendTo.
+#APC shout Setting its version number for easy id.
+#APC perl -pi.bak -e 's/(^Release:.*?)(%\{.*$)/$1.zendto$2/;' "$SPECFILE"
+#APC 
+#APC # Work out the distribution and build new RPM
+#APC shout Now to build the new $PECLNAME RPM
+#APC DIST="$(yum info "$PECLNAME" | grep '^Release' | sed -e 's/^.*:.*\(\..*\)$/\1/')"
+#APC DIST="$(prompt "Distribution to build RPM for" ".el7" "$DIST")"
+#APC shout "Name of apc package is $PECLNAME"
+#APC shout "Name of distribution is $DIST"
+#APC pause
+#APC 
+#APC if rpmbuild -bb --define "dist $DIST" "$SPECFILE"; then
+#APC   shout 'Yay! I built the RPM for '$PECLNAME'!'
+#APC else
+#APC   shout 'Building the RPM for '$PECLNAME' failed.'
+#APC   shout 'Do not worry, I have a patch which might fix this.'
+#APC   shout 'I will apply it and try again.'
+#APC   pause
+#APC   # Patch the spec file for the APC patch
+#APC   cp -f "$PECLPATCH" "$TOPDIR/SOURCES"
+#APC   rm -rf $TEMPFILE
+#APC   # Add the Patchxxx:line to the end of the list of such lines
+#APC   LINE="$(grep -nE '^Patch[0-9]+:' "$SPECFILE" | tail -n 1 | cut -d: -f1)"
+#APC   head -n "$LINE" "$SPECFILE" > "$TEMPFILE"
+#APC   echo 'Patch999: apc-zendto.patch' >> "$TEMPFILE"
+#APC   LINE=$((LINE+1))
+#APC   tail -n "+$LINE" "$SPECFILE" >> "$TEMPFILE"
+#APC   mv "$SPECFILE" "${SPECFILE}.bak1"
+#APC   cp "$TEMPFILE" "$SPECFILE"
+#APC   rm -f "$TEMPFILE"
+#APC   # Add the %patch lines to the end of the list of such lines
+#APC   LINE="$(grep -nE '^%patch[0-9]+' "$SPECFILE" | tail -n 1 | cut -d: -f1)"
+#APC   head -n "$LINE" "$SPECFILE" > "$TEMPFILE"
+#APC   echo '%patch999 -p1 -b .apc-zendto' >> "$TEMPFILE"
+#APC   LINE=$((LINE+1))
+#APC   tail -n "+$LINE" "$SPECFILE" >> "$TEMPFILE"
+#APC   mv "$SPECFILE" "${SPECFILE}.bak2"
+#APC   cp "$TEMPFILE" "$SPECFILE"
+#APC   rm -f "$TEMPFILE"
+#APC 
+#APC   if rpmbuild -bb --define "dist $DIST" "$SPECFILE"; then
+#APC     shout 'Yay! I built the RPM for '"$PECLNAME"'!'
+#APC   else
+#APC     shout 'Something went wrong, and the RPMs for '"$PECLNAME"' were'
+#APC     shout 'not built successfully. Please go back through the output from this'
+#APC     shout 'and try to fix what went wrong (usually something that should'
+#APC     shout 'be installed but was not).'
+#APC     shout 'Then run this script again.'
+#APC     shout 'Exiting...'
+#APC     exit 1
+#APC   fi
+#APC fi
+#APC pause
+#APC 
+#APC shout Now to install the new $PECLNAME RPM
+#APC 
+#APC # Assuming that all worked, the RPMs are in $TOPDIR/RPMS/$ARCH
+#APC # So let's install them!
+#APC cd "$TOPDIR/RPMS/$ARCH" || exit 1
+#APC # Work out what comes after php-pecl-apc-....... in the RPM filenames.
+#APC SUFFIX="$(ls "$PECLNAME"-[0-9]*."$ARCH".rpm | tail -1 | sed -e 's/^'"$PECLNAME"'-//')"
+#APC shout "RPM filename suffix is $SUFFIX"
+#APC if rpm -Uvh "$PECLNAME-$SUFFIX"; then
+#APC   shout 'Yay! We installed the correct '"$PECLNAME"'!'
+#APC else
+#APC   shout 'Something went wrong, and the RPM for '"$PECLNAME"' could not be installed.'
+#APC   shout 'Please go back through the output from this'
+#APC   shout 'and try to fix what went wrong (usually something that should'
+#APC   shout 'be installed but was not).'
+#APC   shout 'Then run this script again.'
+#APC   shout 'Exiting...'
+#APC   exit 1
+#APC fi
 
 shout
 shout Rebuilding PHP is all done, and you should now have the new RPMs installed.

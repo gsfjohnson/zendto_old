@@ -2,6 +2,10 @@
 
 # Setup MTA for ZendTo
 
+# OBSOLETE as of version 4.21 as we now use PHPMailer which is
+# set up after ZendTo itself has been installed.
+exit 0
+
 # If we haven't read functions.sh by now, then read it
 if [ "x$ZTFUNCTIONS" = "x" ]; then
   if [ -f lib/functions.sh ]; then

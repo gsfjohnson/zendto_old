@@ -62,7 +62,7 @@ if ( $theDropbox = new NSSDropbox($NSSDROPBOX_PREFS) ) {
     $smarty->assign('period', $period);
     
   } else {
-    NSSError($smarty->getConfigVariable('ErrorAdminOnly'),"Access Denied");
+    NSSError($smarty->getConfigVars('ErrorAdminOnly'),"Access Denied");
   }
 }
 

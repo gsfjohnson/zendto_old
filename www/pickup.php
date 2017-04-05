@@ -30,7 +30,7 @@
 //
 require "../config/preferences.php";
 require_once("ayah.php");
-require "autoload.php";
+require "RCautoload.php";
 require_once(NSSDROPBOX_LIB_DIR."Smartyconf.php");
 require_once(NSSDROPBOX_LIB_DIR."NSSDropoff.php");
 
@@ -92,7 +92,7 @@ if ( $theDropbox = new NSSDropbox($NSSDROPBOX_PREFS) ) {
                                         $authExpiry);
     if (! $result) {
       $theDropbox->SetupPage();
-      NSSError($smarty->getConfigVariable('ErrorDownloadAuth'),"Authentication Failure");
+      NSSError($smarty->getConfigVars('ErrorDownloadAuth'),"Authentication Failure");
     }
     if ( $authExpiry > time() && $authIP == getClientIP() ) {
       $authSuccess = TRUE;
@@ -158,7 +158,7 @@ if ( $theDropbox = new NSSDropbox($NSSDROPBOX_PREFS) ) {
       }
     } else {
       // The CAPTCHA response was wrong, so re-present the page with an error
-      NSSError($smarty->getConfigVariable('ErrorNotPerson'),"Test failed");
+      NSSError($smarty->getConfigVars('ErrorNotPerson'),"Test failed");
       displayPickupCheck($theDropbox, $smarty, $ayah, $auth);
       exit(0);
     }

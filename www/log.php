@@ -56,11 +56,11 @@ if ( $theDropbox = new NSSDropbox($NSSDROPBOX_PREFS) ) {
       $smarty->display('error.tpl');
     }
   } else {
-    NSSError($smarty->getConfigVariable('ErrorAdminOnly'),"Administrators only");
+    NSSError($smarty->getConfigVars('ErrorAdminOnly'),"Administrators only");
     $smarty->display('error.tpl');
   }
 } else {
-  NSSError($smarty->getConfigVariable('ErrorAdminOnly'),"Administrators only");
+  NSSError($smarty->getConfigVars('ErrorAdminOnly'),"Administrators only");
   $smarty->display('error.tpl');
 }
 

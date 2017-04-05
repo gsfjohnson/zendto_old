@@ -19,21 +19,33 @@ fi
 shout
 shout =================================================================
 shout
-shout 'Install ZendTo itself (the easy bit)'
+shout 'Install ZendTo itself and configure email sending'
 shout
 shout =================================================================
 shout
 pause
 
-shout Installing usage statistics graphing package
-yum -y install rrdtool
+shout Installing usage statistics graphing package, and nc
+yum -y install rrdtool nc
+
+# Do we want to use the repo?
+if [ "x$USEREPO" = "x" ]; then
+  # This setting will be replaced with n if a beta installer
+  USEREPO=y
+fi
 
 shout ' '
 mkdir -p "$SRCSTORE" && cd "$SRCSTORE" || exit 1
 REPOFAILED=no
-shout "Trying to use the ZendTo yum repository."
-curl -O http://zend.to/files/zendto-repo.rpm || REPOFAILED=yes
-rpm -Uvh zendto-repo.rpm || REPOFAILED=yes
+if [ "x$USEREPO" = "xy" ]; then
+  shout "Trying to use the ZendTo yum repository."
+  curl -O http://zend.to/files/zendto-repo.rpm || REPOFAILED=yes
+  rpm -Uvh zendto-repo.rpm || REPOFAILED=yes
+else
+  # Fake repo failure, as we didn't want to use it anyway
+  REPOFAILED=yes
+fi
+
 if [ "x$REPOFAILED" = "xno" ]; then
   shout "Now to install ZendTo itself from the yum repository."
   shout "Drumroll please..."
@@ -69,6 +81,8 @@ fi
 shout
 shout And set up graphing data
 php /opt/zendto/sbin/rrdUpdate.php /opt/zendto/config/preferences.php | grep -v '^[0-9]*x[0-9]*$'
+
+configurePHPMailer
 
 shout
 shout ZendTo itself has been installed.

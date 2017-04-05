@@ -30,10 +30,12 @@
 //
 require "../config/preferences.php";
 require_once(NSSDROPBOX_LIB_DIR."Smartyconf.php");
-// require_once(NSSDROPBOX_LIB_DIR."NSSDropbox.php");
+require_once(NSSDROPBOX_LIB_DIR."NSSDropbox.php");
 
-$smarty->assign('keepForDays', $NSSDROPBOX_PREFS['numberOfDaysToRetain']);
-
-$smarty->display('security.tpl');
+if ( $theDropbox = new NSSDropbox($NSSDROPBOX_PREFS) ) {
+  $theDropbox->SetupPage();
+  $smarty->assign('keepForDays', $NSSDROPBOX_PREFS['numberOfDaysToRetain']);
+  $smarty->display('security.tpl');
+}
 
 ?>

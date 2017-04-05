@@ -10,7 +10,7 @@
 # 3. ClamAV
 # 4. Firewall
 # 5. httpd & PHP config. (needs PHP to be there)
-# 6. email
+# OBSOLETE 6. email <<=== Now configures PHPMailer at the end of 7.
 # 7. ZendTo itself
 # 8. SELinux
 # 9. Leave them to edit preferences.php (with some notes)
@@ -43,19 +43,20 @@ export OK='\n\n\n\n\nIs it okay for me to'
 # It will bail out immediately if any of the scripts return non-zero.
 #
 
-runIfYes "$OK install the web server and development tools, this should not overwrite anything" \
+runIfYes "$OK install the web server and development tools (this should not overwrite anything)" \
 "$HERESUB/1-devtools.sh"    && \
 runIfYes "$OK rebuild PHP if necessary to support big uploads, and install PHP modules" \
 "$HERESUB/2-php.sh" && \
 runIfYes "$OK install and set up ClamAV (with SELinux config if necessary)" \
 "$HERESUB/3-clamav.sh"      && \
-runIfYes "$OK add firewall rules for ssh (Ubuntu only), http and https" \
+runIfYes "$OK add firewall rules for ssh, http and https" \
 "$HERESUB/4-firewall.sh"    && \
 runIfYes "$OK create the ZendTo http website in your Apache config and configure PHP" \
 "$HERESUB/5-httpd-php.sh"       && \
-runIfYes "$OK install and set up email sending if not already done" \
-"$HERESUB/6-email.sh"       && \
-runIfYes "$OK install the ZendTo package itself" \
+#OBSOLETE for versions 4.21 onwards - now done at the end of stage 7
+#OBSOLETE runIfYes "$OK install and set up email sending if not already done" \
+#OBSOLETE "$HERESUB/6-email.sh"       && \
+runIfYes "$OK install the ZendTo package itself and configure email sending" \
 "$HERESUB/7-zendto.sh"      && \
 runIfYes "$OK configure SELinux for ZendTo" \
 "$HERESUB/8-selinux.sh"     && \
@@ -63,25 +64,31 @@ runIfYes "$OK configure SELinux for ZendTo" \
 echo -en '\033[1m' && \
 cat <<EOMESG1
 
+=====================================================================
+=====================================================================
+
 Well, it looks like we made it. Yay!
 
 You will need to reboot the server and view the home page once
 before going any further.
 
 ** To quickly test it **
-After rebooting *and* viewing this server's home page, do
+1. Reboot.
+2. View this server's home page in a web browser.
+3. Make sure you did not skip step 2 !
 EOMESG1
 
 if [ "x$OS" = "xubuntu" ]; then
-  echo 'sudo -i /opt/zendto/bin/adduser.php'
+  echo '4. sudo -i /opt/zendto/bin/adduser.php'
 else
-  echo 'su -'
-  echo '/opt/zendto/bin/adduser.php'
+  echo '4. su -'
+  echo '   /opt/zendto/bin/adduser.php'
 fi
 
 cat <<EOMESG2
-That will show you the syntax. Use it to add a single test user.
-Then login to the website and drop off some files.
+   That will show you the syntax to use.
+5. Use it to add a single test user.
+6. Login to the website and drop off some files.
 
 Now go and configure ZendTo itself in
 /opt/zendto/config/preferences.php and

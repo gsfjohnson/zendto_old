@@ -26,7 +26,12 @@ shout
 pause
 
 # Set up httpd
-HTTPDCONF=/etc/apache2/sites-available/001-zendto.conf
+if [ "$OSVER" -lt "14" ]; then
+  # NEW NEW
+  HTTPDCONF=/etc/apache2/sites-available/001-zendto
+else
+  HTTPDCONF=/etc/apache2/sites-available/001-zendto.conf
+fi
 if [ -f $HTTPDCONF ]; then
   shout Looks like you already have a ZendTo website
   shout configured here. I will leave it alone.
@@ -41,13 +46,22 @@ else
   DocumentRoot "/opt/zendto/www"
   <Directory "/opt/zendto/www">
     Options Indexes FollowSymLinks MultiViews
-    # AllowOverride controls what directives may be placed in .htaccess files.
+    # This controls what directives may be placed in .htaccess files
     AllowOverride All
     # Controls who can get stuff from this server file
-    #Order allow,deny
-    #Allow from all
-    # This is for newer Apache in RHEL/CentOS 7 and Ubuntu
-    Require all granted
+    <IfModule !mod_authz_core.c>
+      # For Apache 2.2:
+      Order allow,deny
+      Allow from all
+    </IfModule>
+    <IfModule mod_authz_core.c>
+      # For Apache 2.4:
+      Require all granted
+    </IfModule>
+    #OLD Order allow,deny
+    #OLD Allow from all
+    #OLD  This is for newer Apache in RHEL/CentOS 7 and Ubuntu
+    #OLD Require all granted
   </Directory>
 
   # Uncomment this to start getting the WebDAV support working.
@@ -72,6 +86,7 @@ EOHTTPD
   a2dissite 000-default
   a2enmod ssl
   a2enmod rewrite
+  shout 'Ignore warnings about "DocumentRoot does not exist".'
   service apache2 restart
   shout
   shout I will leave you to setup the https one.
@@ -92,11 +107,11 @@ shout "Setting your /etc/localtime to $MYTZ"
 ln -sf "/usr/share/zoneinfo/$MYTZ" /etc/localtime
 pause
 
-# Setup php.ini and /etc/php.d/apc.ini or apcu.ini
+# Setup php.ini
 shout Configuring PHP
 pause
 
-# Set configuration in php.ini and apc.ini (5+6) or apcu.ini (7)
+# Set configuration in php.ini
 if [ "$OSVER" -ge "16" ]; then
   INIS="$( ls -d /etc/php/*/{cli,apache2}/php.ini )"
 else
@@ -123,36 +138,38 @@ do
   shout ' '
 done
 
-if [ "$OSVER" -ge "16" ]; then
-  shout
-  shout "Sorry, but the APCu module version 5 no longer has"
-  shout "any of the upload progress features in it."
-  shout "Previous versions will not build against PHP 7,"
-  shout "and so the 'useRealProgressBar' setting in"
-  shout "/opt/zendto/config/preferences.php must be set"
-  shout "to FALSE to disable this feature."
-  shout
-  pause 10
-  INIS="$( ls -d /etc/php/*/mods-available/*apcu.ini )"
-else
-  INIS="$( ls -d /etc/php*/mods-available/*apcu.ini )"
-fi
-for F in $INIS
-do
-  if [ -f "$F" ]; then
-    shout Patching "$F"
-    cp -f "$F" "$F.zendto"
-    setphpini "$F" apc.ttl 7200
-    setphpini "$F" apc.gc_ttl 7200
-    setphpini "$F" apc.slam_defense 0
-    setphpini "$F" apc.rfc1867 1
-    setphpini "$F" apc.rfc1867_ttl 7200
-    setphpini "$F" apc.max_file_size 50G
-    shout ' '
-  fi
-done
+#OBSOLETE for versions 4.21 onwards
+#OBSOLETE if [ "$OSVER" -ge "16" ]; then
+#OBSOLETE  shout
+#OBSOLETE  shout "Sorry, but the APCu module version 5 no longer has"
+#OBSOLETE  shout "any of the upload progress features in it."
+#OBSOLETE  shout "Previous versions will not build against PHP 7,"
+#OBSOLETE  shout "and so the 'useRealProgressBar' setting in"
+#OBSOLETE  shout "/opt/zendto/config/preferences.php must be set"
+#OBSOLETE  shout "to FALSE to disable this feature."
+#OBSOLETE  shout
+#OBSOLETE  pause 10
+#OBSOLETE  INIS="$( ls -d /etc/php/*/mods-available/*apcu.ini )"
+#OBSOLETEelse
+#OBSOLETE  INIS="$( ls -d /etc/php*/mods-available/*apcu.ini )"
+#OBSOLETEfi
+#OBSOLETEfor F in $INIS
+#OBSOLETEdo
+#OBSOLETE  if [ -f "$F" ]; then
+#OBSOLETE    shout Patching "$F"
+#OBSOLETE    cp -f "$F" "$F.zendto"
+#OBSOLETE    setphpini "$F" apc.ttl 7200
+#OBSOLETE    setphpini "$F" apc.gc_ttl 7200
+#OBSOLETE    setphpini "$F" apc.slam_defense 0
+#OBSOLETE    setphpini "$F" apc.rfc1867 1
+#OBSOLETE    setphpini "$F" apc.rfc1867_ttl 7200
+#OBSOLETE    setphpini "$F" apc.max_file_size 50G
+#OBSOLETE    shout ' '
+#OBSOLETE  fi
+#OBSOLETEdone
 
-if [ "$OSVER" -lt "16" ]; then
+# NEW NEW Used to say < 16
+if [ "$OSVER" -eq "14" ]; then
   shout Removing any rogue comment lines in PHP imap.ini
   sed -i.zendto '/^#/ d' /etc/php*/mods-available/*imap.ini
 fi

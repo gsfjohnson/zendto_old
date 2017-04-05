@@ -212,7 +212,7 @@ class NSSLDAPAuthenticator extends NSSAuthenticator {
             }
           }
           if (!$authorisationPassed) {
-            NSSError($smarty->getConfigVariable('ErrorUnauthorizedUser'),'Authorisation Failed');
+            NSSError($smarty->getConfigVars('ErrorUnauthorizedUser'),'Authorisation Failed');
             $result = FALSE;
           }
 
@@ -321,7 +321,7 @@ class NSSLDAPAuthenticator extends NSSAuthenticator {
               }
             }
             if (!$authorisationPassed) {
-              NSSError($smarty->getConfigVariable('ErrorUnauthorizedUser'),'Authorisation Failed');
+              NSSError($smarty->getConfigVars('ErrorUnauthorizedUser'),'Authorisation Failed');
               $result = FALSE;
             }
             //  Chain to the super class for any further properties to be added

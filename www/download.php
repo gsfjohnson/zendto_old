@@ -59,7 +59,7 @@ if ( $theDropbox = new NSSDropbox($NSSDROPBOX_PREFS) ) {
   $thePickup = new NSSDropoff($theDropbox);
   
   // If not an authenticated user, go and get their AuthData record from
-  // the posted hash. Even if they are presetnt, check the name matches
+  // the posted hash. Even if they are present, check the name matches
   // their IP address.
   // If anything fails, use NSSError to post an error message saying they
   // have failed checks and should click again on the link they were sent.
@@ -77,19 +77,19 @@ if ( $theDropbox = new NSSDropbox($NSSDROPBOX_PREFS) ) {
                                         $authExpiry);
     if (! $result) {
       $theDropbox->SetupPage();
-      NSSError($smarty->getConfigVariable('ErrorDownloadAuth'),"Authentication Failure");
+      NSSError($smarty->getConfigVars('ErrorDownloadAuth'),"Authentication Failure");
       $smarty->display('no_download.tpl');
       exit;
     }
     if ($authExpiry < time()) {
       $theDropbox->SetupPage();
-      NSSError($smarty->getConfigVariable('ErrorSessionExpired'),"Session Expired");
+      NSSError($smarty->getConfigVars('ErrorSessionExpired'),"Session Expired");
       $smarty->display('no_download.tpl');
       exit;
     }
     if ($authIP != getClientIP()) {
       $theDropbox->SetupPage();
-      NSSError($smarty->getConfigVariable('ErrorIPChanged'),"Session Error");
+      NSSError($smarty->getConfigVars('ErrorIPChanged'),"Session Error");
       $smarty->display('no_download.tpl');
       exit;
     }

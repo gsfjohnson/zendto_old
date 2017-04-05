@@ -659,7 +659,7 @@ class NSSDropoff {
 
         //  Who made the pick-up?
         $whoWasIt = $this->_dropbox->authorizedUser();
-        $unknown  = $smarty->getConfigVariable('UnknownRecipient');
+        $unknown  = $smarty->getConfigVars('UnknownRecipient');
         $whoWasItEmail = "";
         if ( $whoWasIt ) {
           $whoWasItUID = $whoWasIt;
@@ -669,24 +669,28 @@ class NSSDropoff {
           if (strlen($_POST['emailAddr'])>0) {
             $whoWasIt = trim($_POST['emailAddr']);
             $whoWasIt = preg_replace('/[<>]/', '', $whoWasIt); // Protect it
-            if ( !strcmp($whoWasIt, $unknown) ||
-                 preg_match($this->_dropbox->validEmailRegexp(),
+            if (strcasecmp($whoWasIt, $unknown) == 0) {
+              $whoWasIt = $unknown;
+              $whoWasItEmail = " ";
+            } else if (preg_match($this->_dropbox->validEmailRegexp(),
                             $whoWasIt,$wWIParts) ) {
               $whoWasItEmail = $wWIParts[1]."@".$wWIParts[2];
             } else {
-              $whoWasItEmail = "Invalid_email_address1";
-              $whoWasIt      = "Invalid_email_address1";
+              $whoWasIt      = $unknown;
+              $whoWasItEmail = " ";
             }
           } else if (strlen($_GET['emailAddr'])>0) {
             $whoWasIt = trim($_GET['emailAddr']);
             $whoWasIt = preg_replace('/[<>]/', '', $whoWasIt); // Protect it
-            if ( !strcmp($whoWasIt, $unknown) ||
-                 preg_match($this->_dropbox->validEmailRegexp(),
+            if (strcasecmp($whoWasIt, $unknown) == 0) {
+              $whoWasIt = $unknown;
+              $whoWasItEmail = " ";
+            } else if (preg_match($this->_dropbox->validEmailRegexp(),
                             $whoWasIt,$wWIParts) ) {
               $whoWasItEmail = $wWIParts[1]."@".$wWIParts[2];
             } else {
-              $whoWasItEmail = "Invalid_email_address2";
-              $whoWasIt      = "Invalid_email_address2";
+              $whoWasIt      = $unknown;
+              $whoWasItEmail = " ";
             }
           } else {
             $whoWasIt = $unknown;
@@ -714,16 +718,21 @@ class NSSDropoff {
             $smarty->assign('filename', htmlentities($fileList[0]['basename'], ENT_NOQUOTES, 'UTF-8'));
             $smarty->assign('remoteAddr', getClientIP());
             $smarty->assign('hostname', gethostbyaddr(getClientIP()));
-            $emailSubject = $smarty->getConfigVariable('PickupEmailSubject');
+            $emailSubject = $smarty->getConfigVars('PickupEmailSubject');
             // The subject line can have a %s in it, so used it as a template.
             $emailSubject = sprintf($emailSubject, $whoWasIt, $fileList[0]['basename']);
 
             if ((preg_match('/^[yYtT1]/', MYZENDTO) && $this->_senderEmail != $whoWasItEmail) || preg_match('/^[^yYtT1]/', MYZENDTO)) {
+              $htmltpl = '';
+              if ($smarty->templateExists('pickup_email_html.tpl')) {
+                $htmltpl = $smarty->fetch('pickup_email_html.tpl');
+              }
               if ( ! $this->_dropbox->deliverEmail(
                       $this->_senderEmail,
                       $whoWasItEmail,
                       $emailSubject,
-                      $smarty->fetch('pickup_email.tpl')
+                      $smarty->fetch('pickup_email.tpl'),
+                      $htmltpl
                    )
                  ) {
                 $this->_dropbox->writeToLog("error while sending confirmation email for claim ".$this->_claimID);
@@ -759,6 +768,7 @@ class NSSDropoff {
     Re-send the dropoff to its recipients.
 
     If $touchit is 1, then update the datestamp to reset the expiry timer.
+    If $touchit is FALSE, then it's a reminder, so change the text.
   */
   public function resendDropoff(
     $touchit = FALSE
@@ -782,15 +792,16 @@ class NSSDropoff {
         $note = htmlentities($this->_note, ENT_NOQUOTES, 'UTF-8');
         $claimID = $this->_claimID;
         $claimPasscode = $this->_claimPasscode;
+        $isReminder = FALSE;
         $files = $this->files();
         $realFileCount = $files['totalFiles'];
         // Work out the real email subject line.
         if ($realFileCount == 1) {
-          $emailSubject = sprintf($smarty->getConfigVariable(
+          $emailSubject = sprintf($smarty->getConfigVars(
                                   'DropoffEmailSubject1'),
                                   $senderName);
         } else {
-          $emailSubject = sprintf($smarty->getConfigVariable(
+          $emailSubject = sprintf($smarty->getConfigVars(
                                  'DropoffEmailSubject2'),
                                   $senderName);
         }
@@ -812,6 +823,7 @@ class NSSDropoff {
           $daysLeft    = $this->_dropbox->retainDays();
           $timeLeft    = $daysLeft . ' days';
           $createdTime = timestampForTime(time());
+          $isReminder  = FALSE;
         } else {
           // Not updating timestamp at all
           $secs_gone = time() - timeForDate($this->_created);
@@ -829,6 +841,7 @@ class NSSDropoff {
           $timeLeft = $things_remaining . ' ' . $things;
           $daysLeft = intval($secs_remaining/86400); // backwards compat
           $createdTime = timestampForDate($this->_created);
+          $isReminder  = TRUE;
         }
 
         //  Construct the email notification and deliver:
@@ -845,8 +858,14 @@ class NSSDropoff {
         $smarty->assign('fileCount',   $realFileCount);
         $smarty->assign('retainDays',  $daysLeft);
         $smarty->assign('timeLeft',    $timeLeft);
+        $smarty->assign('isReminder',  $isReminder);
         $smarty->assignByRef('files',  $tplFiles);
-        $emailContent = $smarty->fetch('dropoff_email.tpl');
+        $emailTXTContent = $smarty->fetch('dropoff_email.tpl');
+
+        $emailHTMLContent = '';
+        if ($smarty->templateExists('dropoff_email_html.tpl')) {
+          $emailHTMLContent = $smarty->fetch('dropoff_email_html.tpl');
+        }
 
         // Make the mail come from the sender, not ZendTo
         foreach ( $this->_recipients as $recipient ) {
@@ -854,13 +873,16 @@ class NSSDropoff {
           if (preg_match('/^[^yYtT1]/', MYZENDTO) ||
               (preg_match('/^[yYtT1]/', MYZENDTO) && $senderEmail != $recipient[1])) {
             // Bug fix by Sebastian Tyler
-            $emailContent2 = preg_replace('/__EMAILADDR__/',
-                            urlencode($recipient[1]), $emailContent);
+            $emailTXTContent2 = preg_replace('/__EMAILADDR__/',
+                            urlencode($recipient[1]), $emailTXTContent);
+            $emailHTMLContent2 = preg_replace('/__EMAILADDR__/',
+                            urlencode($recipient[1]), $emailHTMLContent);
             $success = $this->_dropbox->deliverEmail(
                 $recipient[1],
                 $senderEmail,
                 $emailSubject,
-                $emailContent2 //sprintf($emailContent,urlencode($recipient[1]))
+                $emailTXTContent2,
+                $emailHTMLContent2
              );
             if ( ! $success ) {
               $this->_dropbox->writeToLog(sprintf("notification email not re-delivered successfully to %s for claimID $claimID",$recipient[1]));
@@ -958,11 +980,11 @@ class NSSDropoff {
     $smarty->assign('retainDays',  $this->_dropbox->retainDays());
 
     if ( $this->_invalidClaimID ) {
-      NSSError($smarty->getConfigVariable('ErrorBadClaim'),"Invalid Claim ID or Passcode");
+      NSSError($smarty->getConfigVars('ErrorBadClaim'),"Invalid Claim ID or Passcode");
       $claimID = ( $this->_cameFromEmail ? $_GET['claimID'] : $_POST['claimID'] );
     }
     if ( $this->_invalidClaimPasscode ) {
-      NSSError($smarty->getConfigVariable('ErrorBadClaim'),"Invalid Claim ID or Passcode");
+      NSSError($smarty->getConfigVars('ErrorBadClaim'),"Invalid Claim ID or Passcode");
       $claimID = ( $this->_cameFromEmail ? $_GET['claimID'] : $_POST['claimID'] );
     }
     // Kill any nasty characters in $claimID before using it
@@ -1090,7 +1112,7 @@ class NSSDropoff {
       } */
     } else {
       // No email address at all, so it wasn't invalid but blank.
-      $emailAddr = $smarty->getConfigVariable('UnknownRecipient');
+      $emailAddr = $smarty->getConfigVars('UnknownRecipient');
     }
 
     $smarty->assign('emailAddr', $emailAddr);
@@ -1280,7 +1302,7 @@ class NSSDropoff {
                                        $dummy, $reqSubject, $expiry)) {
         if ($expiry < time()) {
           $this->_dropbox->DeleteReqData($req);
-          return $smarty->getConfigVariable('ErrorReadAuth');
+          return $smarty->getConfigVars('ErrorReadAuth');
         }
         // It was a valid req key, so leave $req alone (and true).
         $reqSubject = trim($reqSubject);
@@ -1306,16 +1328,16 @@ class NSSDropoff {
                                              $senderOrganization,
                                              $expiry);
         if (! $authdatares) {
-          return $smarty->getConfigVariable('ErrorReadAuth');
+          return $smarty->getConfigVars('ErrorReadAuth');
         }
         // If the email is blank (and name has no spaces) then it's a pickup.
         // In a pickup, the name is used as the sender's IP address.
         if (!preg_match('/ /', $senderName) && $senderEmail == '') {
-          return $smarty->getConfigVariable('ErrorReadAuth');
+          return $smarty->getConfigVars('ErrorReadAuth');
         }
         if ($expiry < time()) {
           $this->_dropbox->DeleteAuthData($auth);
-          return $smarty->getConfigVariable('ErrorReadAuth');
+          return $smarty->getConfigVars('ErrorReadAuth');
         }
       } else {
         // Logged-in user so just read their data
@@ -1366,7 +1388,7 @@ class NSSDropoff {
         if ( preg_match('/\@/',$recipEmail) ) {
           // Has an @ sign so is an email address. Must be valid!
           if ( ! preg_match($this->_dropbox->validEmailRegexp(),$recipEmail,$emailParts) ) {
-            return sprintf($smarty->getConfigVariable('ErrorBadRecipient'),
+            return sprintf($smarty->getConfigVars('ErrorBadRecipient'),
                            htmlspecialchars($recipEmail));
            }
         } else {
@@ -1382,18 +1404,18 @@ class NSSDropoff {
         //  to the dropbox's domain:
         // JKF Changed checkRecipientDomain to return true if it's a local user
         if ( ! $this->_dropbox->authorizedUser() && ! $this->_dropbox->checkRecipientDomain($recipEmail) ) {
-          return $smarty->getConfigVariable('ErrorWillNotSend');
+          return $smarty->getConfigVars('ErrorWillNotSend');
         }
         $recipients[] = array(( $recipName ? $recipName : "" ),$recipEmail);
       } else if ( $recipName && !$recipEmail ) {
-        return $smarty->getConfigVariable('ErrorNoEmail');
+        return $smarty->getConfigVars('ErrorNoEmail');
       }
       //$recipIndex++;
      }
     }
     // No recipients found?
     if ( $recipIndex<0 ) {
-      return $smarty->getConfigVariable('ErrorNoEmail');
+      return $smarty->getConfigVars('ErrorNoEmail');
     }
 
     
@@ -1402,25 +1424,25 @@ class NSSDropoff {
     //
     if ( isset($_FILES) && isset($_FILES['recipient_csv']) && $_FILES['recipient_csv']['tmp_name'] ) {
       if ( $_FILES['recipient_csv']['error'] != UPLOAD_ERR_OK ) {
-        $error = sprintf($smarty->getConfigVariable('ErrorWhileUploading'),htmlspecialchars($_FILES['recipient_csv']['name']));
+        $error = sprintf($smarty->getConfigVars('ErrorWhileUploading'),htmlspecialchars($_FILES['recipient_csv']['name']));
         switch ( $_FILES['recipient_csv']['error'] ) {
           case UPLOAD_ERR_INI_SIZE:
-            $error .= $smarty->getConfigVariable('ErrorRecipientsTooBigForPHP');
+            $error .= $smarty->getConfigVars('ErrorRecipientsTooBigForPHP');
             break;
           case UPLOAD_ERR_FORM_SIZE:
-            $error .= sprintf($smarty->getConfigVariable('ErrorRecipientsFileTooBig'), $this->_dropbox->maxBytesForFile());
+            $error .= sprintf($smarty->getConfigVars('ErrorRecipientsFileTooBig'), $this->_dropbox->maxBytesForFile());
             break;
           case UPLOAD_ERR_PARTIAL:
-            $error .= $smarty->getConfigVariable('ErrorRecipientsPartialUpload');
+            $error .= $smarty->getConfigVars('ErrorRecipientsPartialUpload');
             break;
           case UPLOAD_ERR_NO_FILE:
-            $error .= $smarty->getConfigVariable('ErrorNoRecipientsFile');
+            $error .= $smarty->getConfigVars('ErrorNoRecipientsFile');
             break;
           case UPLOAD_ERR_NO_TMP_DIR:
-            $error .= $smarty->getConfigVariable('ErrorNoTemp');
+            $error .= $smarty->getConfigVars('ErrorNoTemp');
             break;
           case UPLOAD_ERR_CANT_WRITE:
-            $error .= $smarty->getConfigVariable('ErrorBadTemp');
+            $error .= $smarty->getConfigVars('ErrorBadTemp');
             break;
         }
         return $error;
@@ -1446,7 +1468,7 @@ class NSSDropoff {
               //  un-authenticated users can only deliver to the dropbox's
               //  domain:
               if ( ! $this->_dropbox->authorizedUser() && (! $this->_dropbox->checkRecipientDomain($recipEmail)) ) {
-                return $smarty->getConfigVariable('ErrorWillNotSend');
+                return $smarty->getConfigVars('ErrorWillNotSend');
               }
               // $recipients[] = array(( $recipName ? $recipName : "" ),$recipEmail);
               $recipients[] = array("",$recipEmail);
@@ -1455,7 +1477,7 @@ class NSSDropoff {
         }
         fclose($csv);
       } else {
-        return $smarty->getConfigVariable('ErrorBadRecipientsFile');
+        return $smarty->getConfigVars('ErrorBadRecipientsFile');
       }
       
       //$fileCount = count( array_keys($_FILES) ) - 1;
@@ -1477,7 +1499,7 @@ class NSSDropoff {
     //  Confirm that all fields are present and accounted for:
     $fileCount = $this->numberOfFiles();
     if ( $fileCount == 0 ) {
-      return $smarty->getConfigVariable('ErrorNoFiles');
+      return $smarty->getConfigVars('ErrorNoFiles');
     }
     
     //  Now make sure each file was uploaded successfully, isn't too large,
@@ -1492,25 +1514,25 @@ class NSSDropoff {
         $totalFiles++;
       } elseif ( $_FILES[$key]['name'] ) {
         if ( $_FILES[$key]['error'] != UPLOAD_ERR_OK ) {
-          $error = sprintf($smarty->getConfigVariable('ErrorWhileUploading'),htmlspecialchars($_FILES[$key]['name']));
+          $error = sprintf($smarty->getConfigVars('ErrorWhileUploading'),htmlspecialchars($_FILES[$key]['name']));
           switch ( $_FILES[$key]['error'] ) {
             case UPLOAD_ERR_INI_SIZE:
-              $error .= $smarty->getConfigVariable('ErrorTooBigForPHP');
+              $error .= $smarty->getConfigVars('ErrorTooBigForPHP');
               break;
             case UPLOAD_ERR_FORM_SIZE:
-              $error .= sprintf($smarty->getConfigVariable('ErrorFileTooBig'), $this->_dropbox->maxBytesForFile());
+              $error .= sprintf($smarty->getConfigVars('ErrorFileTooBig'), $this->_dropbox->maxBytesForFile());
               break;
             case UPLOAD_ERR_PARTIAL:
-              $error .= $smarty->getConfigVariable('ErrorPartialUpload');
+              $error .= $smarty->getConfigVars('ErrorPartialUpload');
               break;
             case UPLOAD_ERR_NO_FILE:
-              $error .= $smarty->getConfigVariable('ErrorNoFile');
+              $error .= $smarty->getConfigVars('ErrorNoFile');
               break;
             case UPLOAD_ERR_NO_TMP_DIR:
-              $error .= $smarty->getConfigVariable('ErrorNoTemp');
+              $error .= $smarty->getConfigVars('ErrorNoTemp');
               break;
             case UPLOAD_ERR_CANT_WRITE:
-              $error .= $smarty->getConfigVariable('ErrorBadTemp');
+              $error .= $smarty->getConfigVars('ErrorBadTemp');
               break;
           }
           return $error;
@@ -1521,13 +1543,13 @@ class NSSDropoff {
           $bytes = ($bytes & 0x7FFFFFFF) + 2147483648.0;
         }
         if ( $bytes > $this->_dropbox->maxBytesForFile() ) {
-          return sprintf($smarty->getConfigVariable('ErrorNamedFileTooBig'),
+          return sprintf($smarty->getConfigVars('ErrorNamedFileTooBig'),
                       htmlspecialchars($_FILES[$key]['name']),
                       NSSFormattedMemSize($this->_dropbox->maxBytesForFile())
                     );
         }
         if ( ($totalBytes += $bytes) > $this->_dropbox->maxBytesForDropoff() ) {
-          return sprintf($smarty->getConfigVariable('ErrorDropoffTooBig'),
+          return sprintf($smarty->getConfigVars('ErrorDropoffTooBig'),
                       htmlspecialchars($_FILES[$key]['name']),
                       NSSFormattedMemSize($this->_dropbox->maxBytesForDropoff())
                     );
@@ -1536,7 +1558,7 @@ class NSSDropoff {
         if (preg_match('/^[yYtT1]/', MYZENDTO)) {
           $QuotaLeft = $this->_dropbox->database->DBRemainingQuota($this->_dropbox->authorizedUser());
           if ( $totalBytes > $QuotaLeft ) {
-            return sprintf($smarty->getConfigVariable('ErrorDropoffQuota'),
+            return sprintf($smarty->getConfigVars('ErrorDropoffQuota'),
                            NSSFormattedMemSize($totalBytes-$QuotaLeft)
                           );
           }
@@ -1547,7 +1569,7 @@ class NSSDropoff {
     }
     //if ( $totalBytes == 0 ) {
     if ( $totalFiles == 0 ) {
-      return $smarty->getConfigVariable('ErrorNoFiles');
+      return $smarty->getConfigVars('ErrorNoFiles');
     }
 
     // Call clamdscan on all the files, fail if they are infected
@@ -1580,22 +1602,26 @@ class NSSDropoff {
         $clamcmd = exec($clamdscancmd . $ccfilelist,
                         $clamdoutput, $clamdinfected);
         if ($clamdinfected == 1) {
-          return $smarty->getConfigVariable('ErrorVirusFound');
+          # JKF 2017-02-27 Added more logging
+          $this->_dropbox->writeToLog("Virus scan for ".$this->_dropbox->authorizedUser()." found virus ".implode(' ', $clamdoutput));
+          return $smarty->getConfigVars('ErrorVirusFound');
         }
         if ($clamdinfected == 2) {
-          return $smarty->getConfigVariable('ErrorVirusFailed');
+          # JKF 2017-02-27 Added more logging
+          $this->_dropbox->writeToLog("Virus scan for ".$this->_dropbox->authorizedUser()." failed with ".implode(' ', $clamdoutput));
+          return $smarty->getConfigVars('ErrorVirusFailed');
         }
       }
     }
 
     if ( ! $senderName ) {
-      return $smarty->getConfigVariable('ErrorSenderName');
+      return $smarty->getConfigVars('ErrorSenderName');
     }
     if ( ! $senderEmail ) {
-      return $smarty->getConfigVariable('ErrorSenderEmail');
+      return $smarty->getConfigVars('ErrorSenderEmail');
     }
     if ( ! preg_match($this->_dropbox->validEmailRegexp(),$senderEmail,$emailParts) ) {
-      return $smarty->getConfigVariable('ErrorSenderBadEmail');
+      return $smarty->getConfigVars('ErrorSenderBadEmail');
     }
     $senderEmail = $emailParts[1]."@".$emailParts[2];
     
@@ -1603,7 +1629,7 @@ class NSSDropoff {
     $claimPasscode = NSSGenerateCode();
     $claimID = NULL; $claimDir = NULL;
     if ( ! $this->_dropbox->directoryForDropoff($claimID,$claimDir) ) {
-      return $smarty->getConfigVariable('ErrorUniqueDir');
+      return $smarty->getConfigVars('ErrorUniqueDir');
     }
     
     //  Insert into database:
@@ -1620,7 +1646,7 @@ class NSSDropoff {
         //  Add recipients:
         if ( ! $this->_dropbox->database->DBAddRecipients($recipients, $dropoffID) ) {
           $this->_dropbox->database->DBRollbackTran();
-          return $smarty->getConfigVariable('ErrorStoreRecipients');
+          return $smarty->getConfigVars('ErrorStoreRecipients');
         }
         
         //  Process the files:
@@ -1670,7 +1696,7 @@ class NSSDropoff {
                 $this->_dropbox->writeToLog("failed to ROLLBACK after botched dropoff:  $claimID");
                 $this->_dropbox->writeToLog("there may be orphans");
               }
-              return sprintf($smarty->getConfigVariable('ErrorNamedStore'),
+              return sprintf($smarty->getConfigVars('ErrorNamedStore'),
                              $libraryfile);
             }
             
@@ -1700,7 +1726,7 @@ class NSSDropoff {
                 $this->_dropbox->writeToLog("failed to ROLLBACK after botched dropoff:  $claimID");
                 $this->_dropbox->writeToLog("there may be orphans");
               }
-              return sprintf($smarty->getConfigVariable('ErrorNamedDrop'),
+              return sprintf($smarty->getConfigVars('ErrorNamedDrop'),
                              htmlspecialchars($_FILES[$key]['name']));
             } else {
               // Strip unwanted permissions - Want ug=r and nothing else
@@ -1728,7 +1754,7 @@ class NSSDropoff {
                 $this->_dropbox->writeToLog("failed to ROLLBACK after botched dropoff:  $claimID");
                 $this->_dropbox->writeToLog("there may be orphans");
               }
-              return sprintf($smarty->getConfigVariable('ErrorNamedStore'),
+              return sprintf($smarty->getConfigVars('ErrorNamedStore'),
                              htmlspecialchars($_FILES[$key]['name']));
             }
             
@@ -1789,11 +1815,11 @@ class NSSDropoff {
           $emailSubject = $reqSubject;
         } else {
           if ($realFileCount == 1) {
-            $emailSubject = sprintf($smarty->getConfigVariable(
+            $emailSubject = sprintf($smarty->getConfigVars(
                                     'DropoffEmailSubject1'),
                                     $senderName);
           } else {
-            $emailSubject = sprintf($smarty->getConfigVariable(
+            $emailSubject = sprintf($smarty->getConfigVars(
                                     'DropoffEmailSubject2'),
                                     $senderName);
           }
@@ -1820,7 +1846,11 @@ class NSSDropoff {
         $smarty->assign('showIDPasscode', $showIDPasscode);
         $smarty->assignByRef('files',     $tplFiles);
 
-        $emailTemplate = $smarty->fetch('dropoff_email.tpl');
+        $emailTXTTemplate = $smarty->fetch('dropoff_email.tpl');
+        $emailHTMLTemplate = '';
+        if ($smarty->templateExists('dropoff_email_html.tpl')) {
+          $emailHTMLTemplate = $smarty->fetch('dropoff_email_html.tpl');
+        }
 
         // Update the address book entries for this user
         $this->_dropbox->updateAddressbook($recipients);
@@ -1830,24 +1860,26 @@ class NSSDropoff {
           // Do we want to Bcc the sender as well?
           $emailBcc = '';
           if ($this->_dropbox->bccSender()) {
-            // and don't forget to encode it if there are intl chars in it
-            if (preg_match('/[^\x00-\x7f]/', $senderEmail)) {
-              $emailBcc = "Bcc: =?UTF-8?B?".base64_encode(html_entity_decode($senderEmail))."?=".PHP_EOL;
-            } else {
-              $emailBcc = "Bcc: $senderEmail".PHP_EOL;
-            }
+            $emailBcc = $senderEmail;
+            // // and don't forget to encode it if there are intl chars in it
+            // if (preg_match('/[^\x00-\x7f]/', $senderEmail)) {
+            //   $emailBcc = "Bcc: =?UTF-8?B?".base64_encode(html_entity_decode($senderEmail))."?=".PHP_EOL;
+            // } else {
+            //   $emailBcc = "Bcc: $senderEmail".PHP_EOL;
+            // }
           }
           // Make the mail come from the sender, not ZendTo
           foreach ( $recipients as $recipient ) {
             // In MyZendTo, don't send email to myself
             if ((preg_match('/^[yYtT1]/', MYZENDTO) && $senderEmail != $recipient[1]) || preg_match('/^[^yYtT1]/', MYZENDTO)) {
-              $emailContent = preg_replace('/__EMAILADDR__/', urlencode($recipient[1]), $emailTemplate);
+              $emailTXTContent = preg_replace('/__EMAILADDR__/', urlencode($recipient[1]), $emailTXTTemplate);
+              $emailHTMLContent = preg_replace('/__EMAILADDR__/', urlencode($recipient[1]), $emailHTMLTemplate);
               $success = $this->_dropbox->deliverEmail(
-                  $recipient[1],
+                  array($recipient[1], $emailBcc),
                   $senderEmail,
                   $emailSubject,
-                  $emailContent,
-                  $emailBcc
+                  $emailTXTContent,
+                  $emailHTMLContent
                );
               $emailBcc = ''; // Only Bcc the sender on the first email out
               if ( ! $success ) {
@@ -1863,10 +1895,10 @@ class NSSDropoff {
         $this->_dropbox->writeToLog(sprintf("$senderName <$senderEmail> => $claimID [%s]",
                                      ( $realFileCount == 1 ? "1 file" : "$realFileCount files" )));
       } else {
-        return $smarty->getConfigVariable('ErrorAddDropoff');
+        return $smarty->getConfigVars('ErrorAddDropoff');
       }
     } else {
-      return $smarty->getConfigVariable('ErrorBeginTransaction');
+      return $smarty->getConfigVars('ErrorBeginTransaction');
     }
     return NULL;
   }

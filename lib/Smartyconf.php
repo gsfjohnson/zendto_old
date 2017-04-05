@@ -27,17 +27,23 @@
 // the top of each www php page.
 // Set-up include path
 $app_root = realpath(dirname(__FILE__).'/../');
-include_once(NSSDROPBOX_LIB_DIR."smarty/Smarty.class.php");
+define('SMARTY_DIR', NSSDROPBOX_LIB_DIR.'smarty/');
+include_once(SMARTY_DIR."Smarty.class.php");
 
 // Set-up Smarty template object
 $smarty = new smarty;
-$smarty->template_dir = $app_root . '/templates';
-$smarty->compile_dir  = NSSDROPBOX_DATA_DIR . '/templates_c';
-$smarty->config_dir   = $app_root . '/config';
-$smarty->cache_dir    = NSSDROPBOX_DATA_DIR . '/cache';
-$smarty->plugins_dir  = $app_root.'/lib/smarty/plugins';
+$smarty->setTemplateDir($app_root . '/templates');
+$smarty->setCompileDir(NSSDROPBOX_DATA_DIR . '/templates_c');
+$smarty->setConfigDir($app_root . '/config');
+$smarty->setCacheDir(NSSDROPBOX_DATA_DIR . '/cache');
+
+# Make a new modifier that calls PHP's base64_encode
+$smarty->registerPlugin('modifier', 'base64_encode',  'base64_encode');
 
 $smarty->configLoad('zendto.conf');
+
+// Set this to false for production
+$smarty->debugging = false;
 
 // Set error reporting to fairly quiet
 $smarty->error_reporting = E_ALL & ~E_NOTICE;

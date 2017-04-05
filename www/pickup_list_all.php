@@ -75,7 +75,7 @@ if ( $theDropbox = new NSSDropbox($NSSDROPBOX_PREFS) ) {
       $smarty->assign('formattedTotalBytes', NSSFormattedMemSize($totalsize));
     }
   } else {
-    NSSError($smarty->getConfigVariable('ErrorAdminOnly'),"Access Denied");
+    NSSError($smarty->getConfigVars('ErrorAdminOnly'),"Access Denied");
   }
 
   $smarty->display('pickup_list_all.tpl');

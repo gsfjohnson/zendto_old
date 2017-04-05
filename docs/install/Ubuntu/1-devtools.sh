@@ -34,5 +34,15 @@ fi
 shout Installing web server
 apt-get -y install apache2
 
+if [ "$OSVER" -lt "14" ]; then
+  # But only if we have just installed Apache 2.2
+  APACHEVER="$( apache2 -v | grep -i version | perl -ne 'm/Apache\/(\d+\.\d+)\./i && print "$1"' )"
+  if [ "x$APACHEVER" = "x2.2" ]; then
+    shout And swapping mpm-worker for mpm-prefork.
+    shout Otherwise the PHP we are about to build will not install.
+    apt-get -y install apache2-mpm-worker- apache2-mpm-prefork
+  fi
+fi
+
 exit 0
 

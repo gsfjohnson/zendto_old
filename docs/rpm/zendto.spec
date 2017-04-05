@@ -1,8 +1,6 @@
-%define version 4.20
-%define release 6
+%define version 4.25
+%define release 3
 %define name    zendto
-
-%define want_v3 0
 
 %define is_fedora %(test -e /etc/fedora-release && echo 1 || echo 0)
 
@@ -55,9 +53,7 @@ mkdir -p ${RPM_BUILD_ROOT}/opt
 tar xzf ${RPM_SOURCE_DIR}/ZendTo-%{version}-%{release}.tgz -C ${RPM_BUILD_ROOT}/opt
 mv ${RPM_BUILD_ROOT}/opt/ZendTo-%{version}-%{release} ${RPM_BUILD_ROOT}/opt/zendto
 rm -rf ${RPM_BUILD_ROOT}/opt/zendto/docs/{rpm,debian,upgrade}
-%if %{want_v3} == 0
 rm -rf ${RPM_BUILD_ROOT}/opt/zendto/templates-v3
-%endif
 chmod +x     ${RPM_BUILD_ROOT}/opt/zendto/sbin/UPGRADE/*php
 chmod +x     ${RPM_BUILD_ROOT}/opt/zendto/sbin/UPGRADE/*sh
 chmod +x     ${RPM_BUILD_ROOT}/opt/zendto/bin/*php
@@ -180,18 +176,20 @@ exit 0
 %attr(755,root,root) %dir /opt/zendto
 /opt/zendto/lib
 /opt/zendto/www
+/opt/zendto/sql
+/opt/zendto/myzendto.www
 %config(noreplace) %attr(755,root,root)     %dir /opt/zendto/www/css
 %config(noreplace) %attr(644,root,root)     /opt/zendto/www/css/local.css
 %config(noreplace) %attr(755,root,root)     %dir /opt/zendto/www/images/swish
-/opt/zendto/myzendto.www
 %config(noreplace) %attr(755,root,root)     %dir /opt/zendto/myzendto.www/css
 %config(noreplace) %attr(644,root,root)     /opt/zendto/myzendto.www/css/local.css
+%config(noreplace) %attr(644,root,root)     /opt/zendto/www/images/email-logo.png
+
 %doc /opt/zendto/docs
 %doc /opt/zendto/README
 %doc /opt/zendto/GPL.txt
 %doc /opt/zendto/ChangeLog
 
-/opt/zendto/sql
 
 %attr(755,root,root) %dir /opt/zendto/config
 %config(noreplace) %attr(644,root,apache) /opt/zendto/config/zendto.conf
@@ -203,23 +201,29 @@ exit 0
 %config(noreplace) %attr(644,root,root) /opt/zendto/templates/claimid_box.tpl
 %config(noreplace) %attr(644,root,root) /opt/zendto/templates/delete.tpl
 %config(noreplace) %attr(644,root,root) /opt/zendto/templates/dropoff_email.tpl
+%config(noreplace) %attr(644,root,root) /opt/zendto/templates/dropoff_email_html.tpl
 %config(noreplace) %attr(644,root,root) /opt/zendto/templates/dropoff_list.tpl
+%config(noreplace) %attr(644,root,root) /opt/zendto/templates/email_footer_html.tpl
+%config(noreplace) %attr(644,root,root) /opt/zendto/templates/email_header_html.tpl
+%config(noreplace) %attr(644,root,root) /opt/zendto/templates/email_logo_html.tpl
 %config(noreplace) %attr(644,root,root) /opt/zendto/templates/error.tpl
 %config(noreplace) %attr(644,root,root) /opt/zendto/templates/footer.tpl
 %config(noreplace) %attr(644,root,root) /opt/zendto/templates/functions.tpl
 %config(noreplace) %attr(644,root,root) /opt/zendto/templates/header.tpl
-%config(noreplace) %attr(644,root,root) /opt/zendto/templates/log.tpl
 %config(noreplace) %attr(644,root,root) /opt/zendto/templates/login.tpl
 %config(noreplace) %attr(644,root,root) /opt/zendto/templates/logout.tpl
+%config(noreplace) %attr(644,root,root) /opt/zendto/templates/log.tpl
 %config(noreplace) %attr(644,root,root) /opt/zendto/templates/main_menu.tpl
 %config(noreplace) %attr(644,root,root) /opt/zendto/templates/new_dropoff.tpl
 %config(noreplace) %attr(644,root,root) /opt/zendto/templates/no_download.tpl
+%config(noreplace) %attr(644,root,root) /opt/zendto/templates/pickupcheck.tpl
 %config(noreplace) %attr(644,root,root) /opt/zendto/templates/pickup_email.tpl
+%config(noreplace) %attr(644,root,root) /opt/zendto/templates/pickup_email_html.tpl
 %config(noreplace) %attr(644,root,root) /opt/zendto/templates/pickup_list_all.tpl
 %config(noreplace) %attr(644,root,root) /opt/zendto/templates/pickup_list.tpl
-%config(noreplace) %attr(644,root,root) /opt/zendto/templates/pickupcheck.tpl
 %config(noreplace) %attr(644,root,root) /opt/zendto/templates/progress.tpl
 %config(noreplace) %attr(644,root,root) /opt/zendto/templates/request_email.tpl
+%config(noreplace) %attr(644,root,root) /opt/zendto/templates/request_email_html.tpl
 %config(noreplace) %attr(644,root,root) /opt/zendto/templates/request_sent.tpl
 %config(noreplace) %attr(644,root,root) /opt/zendto/templates/request.tpl
 %config(noreplace) %attr(644,root,root) /opt/zendto/templates/resend.tpl
@@ -228,39 +232,9 @@ exit 0
 %config(noreplace) %attr(644,root,root) /opt/zendto/templates/stats.tpl
 %config(noreplace) %attr(644,root,root) /opt/zendto/templates/unlock.tpl
 %config(noreplace) %attr(644,root,root) /opt/zendto/templates/verify_email.tpl
+%config(noreplace) %attr(644,root,root) /opt/zendto/templates/verify_email_html.tpl
 %config(noreplace) %attr(644,root,root) /opt/zendto/templates/verify_sent.tpl
 %config(noreplace) %attr(644,root,root) /opt/zendto/templates/verify.tpl
-
-%if %want_v3 == 1
-%attr(755,root,root) %dir /opt/zendto/templates-v3
-%config(noreplace) %attr(644,root,root) /opt/zendto/templates-v3/about.tpl
-%config(noreplace) %attr(644,root,root) /opt/zendto/templates-v3/claimid_box.tpl
-%config(noreplace) %attr(644,root,root) /opt/zendto/templates-v3/delete.tpl
-%config(noreplace) %attr(644,root,root) /opt/zendto/templates-v3/dropoff_email.tpl
-%config(noreplace) %attr(644,root,root) /opt/zendto/templates-v3/dropoff_list.tpl
-%config(noreplace) %attr(644,root,root) /opt/zendto/templates-v3/error.tpl
-%config(noreplace) %attr(644,root,root) /opt/zendto/templates-v3/footer.tpl
-%config(noreplace) %attr(644,root,root) /opt/zendto/templates-v3/functions.tpl
-%config(noreplace) %attr(644,root,root) /opt/zendto/templates-v3/header.tpl
-%config(noreplace) %attr(644,root,root) /opt/zendto/templates-v3/login.tpl
-%config(noreplace) %attr(644,root,root) /opt/zendto/templates-v3/logout.tpl
-%config(noreplace) %attr(644,root,root) /opt/zendto/templates-v3/main_menu.tpl
-%config(noreplace) %attr(644,root,root) /opt/zendto/templates-v3/new_dropoff.tpl
-%config(noreplace) %attr(644,root,root) /opt/zendto/templates-v3/no_download.tpl
-%config(noreplace) %attr(644,root,root) /opt/zendto/templates-v3/pickup_email.tpl
-%config(noreplace) %attr(644,root,root) /opt/zendto/templates-v3/pickup_list_all.tpl
-%config(noreplace) %attr(644,root,root) /opt/zendto/templates-v3/pickup_list.tpl
-%config(noreplace) %attr(644,root,root) /opt/zendto/templates-v3/progress.tpl
-%config(noreplace) %attr(644,root,root) /opt/zendto/templates-v3/request.tpl
-%config(noreplace) %attr(644,root,root) /opt/zendto/templates-v3/request_email.tpl
-%config(noreplace) %attr(644,root,root) /opt/zendto/templates-v3/request_sent.tpl
-%config(noreplace) %attr(644,root,root) /opt/zendto/templates-v3/show_dropoff.tpl
-%config(noreplace) %attr(644,root,root) /opt/zendto/templates-v3/stats.tpl
-%config(noreplace) %attr(644,root,root) /opt/zendto/templates-v3/unlock.tpl
-%config(noreplace) %attr(644,root,root) /opt/zendto/templates-v3/verify_email.tpl
-%config(noreplace) %attr(644,root,root) /opt/zendto/templates-v3/verify_sent.tpl
-%config(noreplace) %attr(644,root,root) /opt/zendto/templates-v3/verify.tpl
-%endif
 
 %attr(755,root,root) %dir /opt/zendto/myzendto.templates
 %config(noreplace) %attr(644,root,root) /opt/zendto/myzendto.templates/about.tpl
@@ -318,6 +292,8 @@ exit 0
 %attr(755,root,root) /etc/profile.d/zendto.csh
 
 %changelog
+* Tue Mar 14 2017 Jules Field <jules@zend.to>
+- Added new HTML email templates
 * Thu Dec 22 2016 Jules Field <jules@zend.to>
 - Added upgrade_preferences_php
 * Sun Dec 18 2016 Jules Field <jules@zend.to>

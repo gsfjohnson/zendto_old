@@ -40,29 +40,45 @@ fi
 pause
 
 # Install the EPEL repo
-shout Installing the EPEL extra packages repo
-pause
-if [ "$OS" = "centos" ]; then
-  yum -y install epel-release
+if yum repolist all | egrep -q '^\**epel[[:space:]]'; then
+  shout The EPEL extra packages repo is already installed
+  if yum repolist all | egrep -q '^\**epel[[:space:]].*disabled'; then
+    shout 'but it is disabled.'
+    shout 'As you will have done this manually, I must now stop and ask you'
+    shout 'to re-enable it in /etc/yum.repos.d/epel.repo.'
+    shout 'Please ONLY enable the main epel repo itself, not the other repos'
+    shout 'contained in the same file.'
+    shout 'When you have done that, re-run this installer.'
+    shout 'Exiting...'
+    exit 1
+  else
+    shout and it is enabled. Good.
+  fi
 else
-  yum -y install curl
-  curl -O https://dl.fedoraproject.org/pub/epel/epel-release-latest-"$OSVER".noarch.rpm
-  rpm -Uvh epel-release-latest-"$OSVER".noarch.rpm || {
-    if [ -f /etc/yum.repos.d/epel.repo ]; then
-      shout
-      shout 'I could not get and install the RPM that sets up the EPEL repo,'
-      shout 'but you appear to probably have it installed already.'
-      shout 'I will carry on...'
-      pause
-    else
-      shout
-      shout 'Eek! Could not get and install the RPM that sets up the EPEL repo.'
-      shout 'Please find it on fedoraproject.org and install it, then re-run this script.'
-      shout 'Exiting...'
-      exit 1
-    fi
-  }
-  rm -f epel-release-latest-"$OSVER".noarch.rpm
+  shout Installing the EPEL extra packages repo
+  pause
+  if [ "$OS" = "centos" ]; then
+    yum -y install epel-release
+  else
+    yum -y install curl
+    curl -O https://dl.fedoraproject.org/pub/epel/epel-release-latest-"$OSVER".noarch.rpm
+    rpm -Uvh epel-release-latest-"$OSVER".noarch.rpm || {
+      if [ -f /etc/yum.repos.d/epel.repo ]; then
+        shout
+        shout 'I could not get and install the RPM that sets up the EPEL repo,'
+        shout 'but you appear to probably have it installed already.'
+        shout 'I will carry on...'
+        pause
+      else
+        shout
+        shout 'Eek! Could not get and install the RPM that sets up the EPEL repo.'
+        shout 'Please find it on fedoraproject.org and install it, then re-run this script.'
+        shout 'Exiting...'
+        exit 1
+      fi
+    }
+    rm -f epel-release-latest-"$OSVER".noarch.rpm
+  fi
 fi
 
 exit 0

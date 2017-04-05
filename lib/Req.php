@@ -178,7 +178,7 @@ class Req {
     $subjectlength = strlen($subject);
     $maxlen = $this->_dropbox->maxsubjectlength();
     if ($subjectlength>$maxlen) {
-      return sprintf($smarty->getConfigVariable('ErrorSubjectTooLong'),
+      return sprintf($smarty->getConfigVars('ErrorSubjectTooLong'),
                      $subjectlength, $maxlen);
     }
 
@@ -223,11 +223,17 @@ class Req {
     $emailSubject = trim($this->_subject);
     $smarty->assign('subject', $emailSubject);
  
+    $htmltpl = '';
+    if ($smarty->templateExists('request_email_html.tpl')) {
+      $htmltpl = $smarty->fetch('request_email_html.tpl');
+    }
+
     $success = $this->_dropbox->deliverEmail(
                  $this->_recipEmail,
                  $this->_senderEmail,
                  $emailSubject,
-                 $smarty->fetch('request_email.tpl'));
+                 $smarty->fetch('request_email.tpl'),
+                 $htmltpl);
     if ( $success ) {
       $this->_dropbox->writeToLog(sprintf("Dropoff request email delivered successfully from %s to %s",$this->_senderEmail, $this->_recipEmail));
     } else {

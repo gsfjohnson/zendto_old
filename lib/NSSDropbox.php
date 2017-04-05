@@ -30,28 +30,50 @@
 require_once(NSSDROPBOX_LIB_DIR."NSSAuthenticator.php");
 require_once(NSSDROPBOX_LIB_DIR."NSSUtils.php");
 require_once(NSSDROPBOX_LIB_DIR."wordlist.php");
+require_once(NSSDROPBOX_LIB_DIR."PHPMailerAutoload.php");
 
 //
 // There are sooo many places where it would be nice to have the base URL
-// for this site, so we can just tack-on a page or GET directives.  We
+// for this site, so we can just tack-on a page of GET directives.  We
 // form it quite simply by concatenating a couple of the SERVER fields.
 // There may be other ways (other SERVER fields) that would work better
 // for this, but the code-fu below is adequate:
 //
-$port = @$_SERVER['SERVER_PORT'];
-$https = @$_SERVER['HTTPS'];
-if (($https && $port==443) || (!$https && $port==80)) {
-  $port = '';
+
+global $NSSDROPBOX_URL;
+
+// If it's in the preferences.php then use the value there always.
+if ( array_key_exists('serverRoot', $NSSDROPBOX_PREFS) &&
+     $NSSDROPBOX_PREFS['serverRoot'] !== '' &&
+     !preg_match('/zendto\.soton\.ac\.uk/', $NSSDROPBOX_PREFS['serverRoot']) ) {
+  $NSSDROPBOX_URL = @$NSSDROPBOX_PREFS['serverRoot'];
 } else {
-  $port = ":$port";
+  // Not defined, so we'll have to work it out
+  if (@$_SERVER['SERVER_NAME']) {
+    // We are being run from the web, so can get a very good guess
+    $port = @$_SERVER['SERVER_PORT'];
+    $https = @$_SERVER['HTTPS'];
+    if (($https && $port==443) || (!$https && $port==80)) {
+      $port = '';
+    } else {
+      $port = ":$port";
+    }
+    $NSSDROPBOX_URL = "http".($https ? "s" : "")."://".@$_SERVER['SERVER_NAME'].$port.@$_SERVER['REQUEST_URI'];
+    // Delete anything after a ? (and the ? itself)
+    $NSSDROPBOX_URL = preg_replace('/\?.*$/', '', $NSSDROPBOX_URL);
+    // Should now end in blahblah.php or simply a directory /
+    if ( !preg_match('/\/$/',$NSSDROPBOX_URL) ) {
+      // Delete anything after the last / (but leave the /)
+      $NSSDROPBOX_URL = preg_replace('/\/[^\/]+$/','/',$NSSDROPBOX_URL);
+    }
+  } else {
+    // We are running from the cli, so a very poor guess.
+    $NSSDROPBOX_URL = 'http://'.php_uname('n').'/';
+  }
 }
-$NSSDROPBOX_URL = "http".($https ? "s" : "")."://".@$_SERVER['SERVER_NAME'].$port.@$_SERVER['REQUEST_URI'];
-// Delete anything after a ? (and the ? itself)
-$NSSDROPBOX_URL = preg_replace('/\?.*$/', '', $NSSDROPBOX_URL);
-// Should now end in blahblah.php or simply a directory /
-if ( !preg_match('/\/$/',$NSSDROPBOX_URL) ) {
-  // Delete anything after the last / (but leave the /)
-  $NSSDROPBOX_URL = preg_replace('/\/[^\/]+$/','/',$NSSDROPBOX_URL);
+// If it doesn't end with a / then we'll add one to be on the safe side!
+if (!preg_match('/\/$/', $NSSDROPBOX_URL)) {
+  $NSSDROPBOX_URL .= '/';
 }
 
 //
@@ -115,12 +137,20 @@ class NSSDropbox {
   private $_humanDownloads = TRUE;
   private $_showRecipsOnPickup = TRUE;
   private $_bccSender = FALSE;
+  private $_allowExternalUploads = TRUE;
 
-  private $_clamdscan = '/usr/bin/clamdscan --quiet';
+  private $_clamdscan = '/usr/bin/clamdscan --fdpass';
   private $_maxnotelength = 1000;
   private $_maxsubjectlength = 100;
   private $_loginFailMax = 0;
   private $_loginFailTime = 0;
+  private $_SMTPserver = '';
+  private $_SMTPport = 25;
+  private $_SMTPsecure = '';
+  private $_SMTPusername = '';
+  private $_SMTPpassword = '';
+  private $_SMTPcharset = 'utf-8';
+  private $_SMTPdebug = FALSE;
   
   // private $_newDatabase = FALSE;
   public  $database = NULL; // JKF Handle to database, whatever type
@@ -182,6 +212,9 @@ class NSSDropbox {
       $this->_humanDownloads        = $prefs['humanDownloads'];
       $this->_libraryDirectory      = $prefs['libraryDirectory'];
       $this->_usingLibrary          = $prefs['usingLibrary'];
+      $this->_bccSender             = $prefs['bccSender'];
+      $this->_allowExternalUploads  = $prefs['allowExternalUploads'];
+      $this->_SMTPdebug             = $prefs['SMTPdebug'];
 
       // Bail out right now if we just want a database connection.
       // Must do it here as we must have the dropboxLog setup right.
@@ -189,10 +222,10 @@ class NSSDropbox {
         return 0;
       }
 
-      if ( ! ($this->_emailSenderAddr = $smarty->getConfigVariable('EmailSenderAddress')) ) {
+      if ( ! ($this->_emailSenderAddr = $smarty->getConfigVars('EmailSenderAddress')) ) {
         $execAsUser = posix_getpwuid(posix_geteuid());
         $this->_emailSenderAddr = sprintf("%s <%s@%s>",
-                                      $smarty->getConfigVariable('ServiceTitle'),
+                                      $smarty->getConfigVars('ServiceTitle'),
                                       $execAsUser['name'],
                                       $_SERVER['SERVER_NAME']
                                      );
@@ -225,9 +258,6 @@ class NSSDropbox {
       if ( $prefs['showRecipsOnPickup'] === FALSE ) {
         $this->_showRecipsOnPickup  = FALSE;
       }
-      if ( $prefs['bccSender'] ) {
-        $this->_bccSender           = TRUE;
-      }
 
       if ( $prefs['clamdscan'] ) {
         $this->_clamdscan           = $prefs['clamdscan'];
@@ -243,6 +273,24 @@ class NSSDropbox {
       }
       if ( $prefs['loginFailTime'] ) {
         $this->_loginFailTime       = $prefs['loginFailTime'];
+      }
+      if ( $prefs['SMTPserver'] ) {
+        $this->_SMTPserver          = $prefs['SMTPserver'];
+      }
+      if ( $prefs['SMTPport'] ) {
+        $this->_SMTPport            = $prefs['SMTPport'];
+      }
+      if ( $prefs['SMTPsecure'] ) {
+        $this->_SMTPsecure          = $prefs['SMTPsecure'];
+      }
+      if ( $prefs['SMTPusername'] ) {
+        $this->_SMTPusername        = $prefs['SMTPusername'];
+      }
+      if ( $prefs['SMTPpassword'] ) {
+        $this->_SMTPpassword        = $prefs['SMTPpassword'];
+      }
+      if ( $prefs['SMTPcharset'] ) {
+        $this->_SMTPcharset         = $prefs['SMTPcharset'];
       }
       
       //  Create an authenticator based on our prefs:
@@ -336,10 +384,10 @@ class NSSDropbox {
     setcookie(
         $this->_cookieName,
         "",
-        0,
+        time() - 3600*24*365, // 1 year in the past was 0,
         "/",
         "",
-        TRUE,
+        FALSE, // this must match what is used to create it TRUE,
         TRUE
       );
     $this->_authorizedUser = NULL;
@@ -575,6 +623,18 @@ public function updateAddressbook( $recips ) {
   )
   {
     $this->_bccSender = $bccSender;
+  }
+  /*
+    @function allowExternalUploads
+
+    Accessor pair for getting/setting the allowExternalUploads switch.
+  */
+  public function allowExternalUploads() { return $this->_allowExternalUploads; }
+  public function setallowExternalUploads(
+    $allowExternalUploads
+  )
+  {
+    $this->_allowExternalUploads = $allowExternalUploads;
   }
   /*!
     @function clamdscan
@@ -963,48 +1023,139 @@ public function updateAddressbook( $recips ) {
     
     Send the $content of an email message to (one or more) address(es) in
     $toAddr.
+    $toAddr is now an array.
   */
   public function deliverEmail(
     $toAddr,
     $fromAddr,
     $subject,
-    $content,
-    $headers = ""
+    $textcontent,
+    $htmlcontent = ''
   )
   {
-    // If it contains any characters outside 0x00-0x7f, then encode it
-    if (preg_match('/[^\x00-\x7f]/', $subject)) {
-      $subject = "=?UTF-8?B?".base64_encode(html_entity_decode($subject))."?=";
-    }
-    if (preg_match('/[^\x00-\x7f]/', $fromAddr)) {
-      $fromAddr = "=?UTF-8?B?".base64_encode(html_entity_decode($fromAddr))."?=";
-    }
-    if (preg_match('/[^\x00-\x7f]/', $this->_emailSenderAddr)) {
-      $sender = "=?UTF-8?B?".base64_encode(html_entity_decode($this->_emailSenderAddr))."?=";
+    // If they have set an SMTP server, use PHPMailer.
+    // Otherwise, use mail().
+    if ($this->_SMTPserver !== '') {
+      $mail = new PHPMailer;
+      $mail->isSMTP();
+      $mail->SMTPDebug = $this->_SMTPdebug?2:0;
+      $mail->Debugoutput = 'html'; // or 'echo'
+      $mail->Host = $this->_SMTPserver;
+      $mail->Port = $this->_SMTPport;
+      $mail->SMTPAuth = FALSE;
+      if ($this->_SMTPusername !== '') {
+        $mail->SMTPAuth = TRUE;
+        $mail->Username = $this->_SMTPusername;
+        $mail->Password = $this->_SMTPpassword;
+      }
+      if ($this->_SMTPsecure !== '') {
+        $mail->SMTPSecure = $this->_SMTPsecure;
+      } else {
+        // If they really want no security, give them no security
+        $mail->SMTPAutoTLS = FALSE;
+      }
+      $mail->CharSet = $this->_SMTPcharset;
+      $mail->XMailer = ' ';
+      $mail->Subject = $subject;
+
+      if (preg_match('/ /', $this->_emailSenderAddr)) {
+        $s = array();
+        $s = $mail->parseAddresses($this->_emailSenderAddr);
+        $mail->setFrom($s[0]['address'], $s[0]['name']);
+      } else {
+        $mail->setFrom($this->_emailSenderAddr);
+      }
+
+      if ($fromAddr!="") {
+        if (preg_match('/ /', $fromAddr)) {
+          $s = array();
+          $s = $mail->parseAddresses($fromAddr);
+          $mail->addReplyTo($s[0]['address'], $s[0]['name']);
+        } else {
+          $mail->addReplyTo($fromAddr);
+        }
+      }
+
+      // "To" the 1st address, "Bcc" remaining non-null ones
+      if (is_array($toAddr)) {
+        $mail->addAddress(array_shift($toAddr));
+        while ( $bcc = array_shift($toAddr) ) {
+          if ($bcc !== '') {
+            $mail->addBCC($bcc);
+          }
+        }
+      } else {
+        $mail->addAddress($toAddr);
+      }
+
+      if ($htmlcontent !== '') {
+        $mail->isHTML(true);
+        $mail->msgHTML($htmlcontent);
+        $mail->AltBody = $textcontent;
+      } else {
+        $mail->isHTML(false);
+        $mail->ContentType = 'text/plain; charset=UTF-8; format=flowed';
+        $mail->Encoding = '8bit';
+        $mail->WordWrap = 0;
+        $mail->Body = $textcontent;
+      }
+      if (!$mail->send()) {
+        NSSError($mail->ErrorInfo, "Mail Error");
+        return FALSE;
+      }
+      return TRUE;
+
     } else {
-      $sender = $this->_emailSenderAddr;
+
+      // If it contains any characters outside 0x00-0x7f, then encode it
+      if (preg_match('/[^\x00-\x7f]/', $subject)) {
+        $subject = "=?UTF-8?B?".base64_encode(html_entity_decode($subject))."?=";
+      }
+      if (preg_match('/[^\x00-\x7f]/', $fromAddr)) {
+        $fromAddr = "=?UTF-8?B?".base64_encode(html_entity_decode($fromAddr))."?=";
+      }
+      if (preg_match('/[^\x00-\x7f]/', $this->_emailSenderAddr)) {
+        $sender = "=?UTF-8?B?".base64_encode(html_entity_decode($this->_emailSenderAddr))."?=";
+      } else {
+        $sender = $this->_emailSenderAddr;
+      }
+
+      $headers = '';
+
+      // The $toAddr might be an array: To the first, Bcc the rest
+      if (is_array($toAddr)) {
+        $to = array_shift($toAddr);
+        while ( $bcc = array_shift($toAddr) ) {
+          if ($bcc !== '') {
+            // Encode it if necessary
+            if (preg_match('/[^\x00-\x7f]/', $bcc)) {
+              $bcc = "=?UTF-8?B?".base64_encode(html_entity_decode($bcc))."?=";
+            }
+            $headers .= sprintf("Bcc: %s", $bcc) . PHP_EOL;
+          }
+        }
+      } else {
+        $to = $toAddr;
+      }
+      // Add the From: and Reply-To: headers if they have been supplied.
+      if ($fromAddr!="") {
+        $headers = sprintf("From: %s", $sender) . PHP_EOL .
+                   sprintf("Reply-to: %s", $fromAddr) . PHP_EOL .
+                   $headers;
+      }
+
+      // Add the MIME headrs for 8-bit UTF-8 encoding
+      $headers .= "MIME-Version: 1.0".PHP_EOL;
+      $headers .= "Content-Type: text/plain; charset=UTF-8; format=flowed".PHP_EOL;
+      $headers .= "Content-Transfer-Encoding: 8bit".PHP_EOL;
+
+      return mail(
+                $to,
+                $subject,
+                $textcontent,
+                $headers
+              );
     }
-
-    // Add the From: and Reply-To: headers if they have been supplied.
-    if ($fromAddr!="") {
-      $headers = sprintf("From: %s", $sender) . PHP_EOL .
-                 sprintf("Reply-to: %s", $fromAddr) . PHP_EOL .
-                 $headers;
-    }
-
-    // Add the MIME headrs for 8-bit UTF-8 encoding
-    $headers .= "MIME-Version: 1.0".PHP_EOL;
-    $headers .= "Content-Type: text/plain; charset=UTF-8; format=flowed".PHP_EOL;
-    $headers .= "Content-Transfer-Encoding: 8bit".PHP_EOL;
-
-    return mail(
-              $toAddr,
-              $subject,
-              $content,
-              $headers // JKF Commented out for now due to security concerns ,
-              // JKF Commented out for now due to security concerns
-              // '-f "'.$fromAddr.'"'
-            );
   }
 
   /*!
@@ -1019,7 +1170,7 @@ public function updateAddressbook( $recips ) {
   {
     global $smarty;
     $logText = sprintf("%s [%s]: %s\n",strftime("%Y-%m-%d %T"),
-                       $smarty->getConfigVariable('ServiceTitle'),
+                       $smarty->getConfigVars('ServiceTitle'),
                        $logText);
     if (!file_put_contents($this->_dropboxLog,$logText,FILE_APPEND | LOCK_EX)) {
       NSSError(sprintf("Could not write to log file %s, ensure that web server user can write to the log file as set in preferences.php",$this->_dropboxLog));
@@ -1055,6 +1206,7 @@ public function updateAddressbook( $recips ) {
     $smarty->assign('padlockImageAlt', ($this->_authorizedUser?"locked":"unlocked"));
     $smarty->assign('isAuthorizedUser', ($this->_authorizedUser?TRUE:FALSE));
     $smarty->assign('validEmailRegexp', $this->validEmailRegexp());
+    $smarty->assign('SMTPdebug', $this->_SMTPdebug);
 
     $smarty->assign('isIndexPage',
              preg_match('/^index\.php.*/',basename($_SERVER['PHP_SELF'])));
@@ -1072,7 +1224,7 @@ public function updateAddressbook( $recips ) {
     }
 
     if ( $this->_authorizationFailed ) {
-      NSSError($smarty->getConfigVariable('ErrorBadLogin'),"Authentication Error");
+      NSSError($smarty->getConfigVars('ErrorBadLogin'),"Authentication Error");
     }
   }
   

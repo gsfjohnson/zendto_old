@@ -29,7 +29,7 @@
 // configuration!
 //
 require "../config/preferences.php";
-require "autoload.php";
+require "RCautoload.php";
 require_once(NSSDROPBOX_LIB_DIR."Smartyconf.php");
 require_once(NSSDROPBOX_LIB_DIR."NSSDropoff.php");
 require_once(NSSDROPBOX_LIB_DIR."Req.php");
@@ -61,14 +61,14 @@ if ( $theDropbox = new NSSDropbox($NSSDROPBOX_PREFS) ) {
                 $note, $subject, $expiry) ) {
       // Error!
       $theDropbox->SetupPage();
-      NSSError($smarty->getConfigVariable('ErrorRequestUsed'),"Request Code Used");
+      NSSError($smarty->getConfigVars('ErrorRequestUsed'),"Request Code Used");
       $smarty->display('error.tpl');
       exit;
     }
 
     if ($expiry < time()) {
         $theDropbox->SetupPage();
-        NSSError($smarty->getConfigVariable('ErrorRequestExpired'),"Request Code Expired");
+        NSSError($smarty->getConfigVars('ErrorRequestExpired'),"Request Code Expired");
         $smarty->display('error.tpl');
         exit;
     }
@@ -106,7 +106,7 @@ if ( $theDropbox = new NSSDropbox($NSSDROPBOX_PREFS) ) {
   // so they must be logged in.
   if ( ! $theDropbox->authorizedUser() ) {
     $theDropbox->SetupPage();
-    NSSError($smarty->getConfigVariable('ErrorNotLoggedIn'),"Access Denied");
+    NSSError($smarty->getConfigVars('ErrorNotLoggedIn'),"Access Denied");
     $smarty->display('error.tpl');
     exit;
   }
@@ -119,16 +119,20 @@ if ( $theDropbox = new NSSDropbox($NSSDROPBOX_PREFS) ) {
     $emailAddrs = preg_split('/[;, ]+/', paramPrepare(strtolower($_POST['recipEmail'])), NULL, PREG_SPLIT_NO_EMPTY);
     $wordList = array();
     $emailList = array(); // This is the output list, separate for safety
+
+    // Set up the output page
+    $theDropbox->SetupPage();
+
     foreach ($emailAddrs as $re) {
       $req = new Req($theDropbox, $re);
       if ($req->formInitError() != "") {
-        $theDropbox->SetupPage();
+        // $theDropbox->SetupPage();
         NSSError($req->formInitError(),"Request error");
         $smarty->display('error.tpl');
         exit;
       }
       if (! $req->sendReqEmail()) {
-        $theDropbox->SetupPage();
+        // $theDropbox->SetupPage();
         NSSError("Sending the request email failed.","Email error");
         $smarty->display('error.tpl');
         exit;
@@ -137,12 +141,8 @@ if ( $theDropbox = new NSSDropbox($NSSDROPBOX_PREFS) ) {
       $emailList[] = $req->recipEmail();
     }
 
-    // Set up the output page
-    $theDropbox->SetupPage();
-    //$smarty->assign('autoHome', TRUE);
     $smarty->assign('toEmail', implode(', ', $emailList));
     $smarty->assign('reqKey', implode(', ', $wordList));
-    //$smarty->assign('reqKey', $req->words());
     $smarty->display('request_sent.tpl');
     exit;
   }

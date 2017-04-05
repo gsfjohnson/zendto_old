@@ -62,10 +62,12 @@ if [ "$PHPMAJOR" -ge "7" ]; then
   pause
   apt-get -y install libapache2-mod-php php-common php php-cli \
           php-sqlite3 php-readline php-ldap php-intl php-gd    \
-          php-enchant php-curl php-json php-apcu php-imap php-mbstring
+          php-enchant php-curl php-json php-imap php-mbstring
+#APC           php-enchant php-curl php-json php-apcu php-imap php-mbstring
   shout ' '
   shout And enable them.
-  for MOD in curl enchant json sqlite3 gd imap ldap apcu pdo readline intl mbstring
+#APC   for MOD in curl enchant json sqlite3 gd imap ldap apcu pdo readline intl mbstring
+  for MOD in curl enchant json sqlite3 gd imap ldap pdo readline intl mbstring
   do
     phpenmod -v ALL -s ALL "$MOD"
   done
@@ -73,17 +75,35 @@ if [ "$PHPMAJOR" -ge "7" ]; then
   exit 0
 fi
 
-REMOVE="$(dpkg -l | awk '{ print $2 }' | grep '^php[.0-9]*-common')"
-if [ "x$REMOVE" = "x" ]; then
+PHPCOMMON="$(dpkg -l | awk '{ print $2 }' | grep '^php[.0-9]*-common$' | head -1)"
+if [ "x$PHPCOMMON" = "x" ]; then
   shout Good, no PHP packages installed.
 else
-  shout Need to remove any existing PHP packages first, sorry.
-  shout along with packages with depend on PHP, sorry.
-  pause 10
-  apt-get -y remove $REMOVE
+  shout I need to remove any existing PHP packages first,
+  shout along with packages with depend on PHP, sorry:
+  apt-cache rdepends --installed --recurse "$PHPCOMMON" | \
+  grep '^  ' | grep -v ':' | sort | uniq | \
+  while read p; do
+    shout '  '${p}
+    if [ "x$p" = "xzendto" ]; then
+      shout '    This should not destroy your ZendTo configuration,'
+      shout '    but I STRONGLY advise pressing Ctrl-C to stop now'
+      shout '    and take a backup if you have not already done so.'
+    fi
+  done
+  shout
+  shout I am about to remove all those packages.
+  pause 20
+  apt-get -y remove $PHPCOMMON
 fi
 pause
 
+if [ -d "$SRCSTORE" ]; then
+  shout Deleting the contents of "$SRCSTORE"
+  shout so I get a clean build.
+  pause
+  rm -rf "$SRCSTORE"
+fi
 mkdir -p "$SRCSTORE" && cd "$SRCSTORE" || exit 1
 
 # Find the latest major release of PHP (5: in EPEL; 6: in CentOS; 7: in CentOS/RHEL).
@@ -121,6 +141,12 @@ else
   apt-get -y install mysql-server
   REMOVEMYSQL='yes'
 fi
+# And need to make sure it's stopped
+if [ "$OSVER" -lt "16" ]; then
+  shout Stopping MySQL
+  service mysql stop 2>/dev/null
+fi
+
 
 shout Remove mysql-server from the PHP dependency list
 sed -i.zendto -e '/^\s*mysql-server,\s*$/ d' "$PHPSRCDIR/debian/control"
@@ -129,24 +155,53 @@ chmod go+x ~
 echo "$SRCSTORE"'/** rw,' >> /etc/apparmor.d/local/usr.sbin.mysqld
 /etc/init.d/apparmor reload
 
+#U12-APACHE24 if [ "$OSVER" -lt "14" ]; then
+#U12-APACHE24   APACHEVER="$( apache2 -v | grep -i version | perl -ne 'm/Apache\/(\d+\.\d+)\./i && print "$1"' )"
+#U12-APACHE24   if [ "x$APACHEVER" != "x2.2" ]; then
+#U12-APACHE24     shout 'You are installing a new Apache on Ubuntu 12,'
+#U12-APACHE24     shout 'so I need to install apache2-dev and remove'
+#U12-APACHE24     shout 'dependencies on Apache 2.2.'
+#U12-APACHE24     apt-get -y install apache2-dev
+#U12-APACHE24     sed -i.zendto '/apache2\.2/ d; s/--with-openssl/--with-openssl --disable-phar/' "$PHPSRCDIR/debian/rules"
+#U12-APACHE24     sed -i.zendto 's/apache2-prefork-dev,/apache2-dev,/' "$PHPSRCDIR/debian/control"
+#U12-APACHE24     shout
+#U12-APACHE24   fi
+#U12-APACHE24 fi
+
 shout Get all the build dependencies
 pause
 mk-build-deps --install --remove --tool 'apt-get --assume-yes --no-install-recommends' "$PHPSRCDIR/debian/control"
-apt-get download "${NAME}-json" "${NAME}-apcu" # apt-get install this as it has deps ${NAME}-imap
+#APC apt-get download "${NAME}-json" "${NAME}-apcu" # apt-get install this as it has deps ${NAME}-imap
+if [ "$OSVER" -gt "12" ]; then
+  apt-get download "${NAME}-json"
+fi
+apt-get download "${NAME}-imap" # NEW NEW
 cd "$PHPSRCDIR" || exit 1
 
 # Patch the source
 shout Now to patch the source
 chmod +x "$HERE"/lib/apply-big-uploads.sh
+export QUILT_PATCHES=debian/patches # NEW NEW
 quilt push -a
 quilt new zendto-big-uploads
 quilt shell "$HERE"/lib/apply-big-uploads.sh
+if ! grep -q '^mysqld=.*user=root' debian/setup-mysql.sh; then
+  shout And fix a bug in the way they start mysqld for testing # NEW NEW
+  shout '(This may take several seconds)' # NEW NEW
+  quilt shell sed -i 's/^\(mysqld=.*\)" *$/\1 --user=root"/' debian/setup-mysql.sh # NEW NEW
+fi
+#U12-APACHE24 if [ "$OSVER" -lt "14" -a "x$APACHEVER" != "x2.2" ]; then
+#U12-APACHE24   shout 'You are installing a new Apache on Ubuntu 12,'
+#U12-APACHE24   shout 'so a patch for the PHP OpenSSL code is needed.'
+#U12-APACHE24   shout '(This may take several seconds)'
+#U12-APACHE24   quilt shell patch -p0 -i "$HERE"/lib/xp_ssl.c.SSLv2v3.patch
+#U12-APACHE24 fi
 debchange --nmu Enabled uploads greater than 2GB for ZendTo.
 
 # Build it!
 shout Now to build PHP. This will take time. Get a coffee.
 pause
-if fakeroot debian/rules clean && fakeroot debian/rules binary; then
+if fakeroot debian/rules binary; then # NEW NEW
   shout ' '
   shout 'Yay! We rebuilt PHP!'
 else
@@ -158,11 +213,22 @@ else
 fi
 
 # Clean up the mess we left
-shout Cleaning up temporary AppArmor settings and mysql-server 
+shout Cleaning up temporary AppArmor settings
 cd .. || exit 1
 REX="$( echo "$SRCSTORE" | sed -e 's/[^a-zA-Z0-9._-]/./g' )"
 sed -ie "/^${REX}/ d" /etc/apparmor.d/local/usr.sbin.mysqld
+if [ "x$REMOVEMYSQL" = "xno" ]; then
+  shout 'mysql-server was already installed by someone else.'
+  shout 'It is not needed on a new ZendTo installation.'
+  shout 'It is only needed if you are migrating from an existing'
+  shout 'ZendTo installation that used MySQL as its database'
+  shout 'and kept the database data on the ZendTo server itself.'
+  if yesno "Would you like me to remove mysql-server" "y"; then
+    REMOVEMYSQL='yes'
+  fi
+fi
 if [ "x$REMOVEMYSQL" = "xyes" ]; then
+  shout Removing MySQL
   apt-get -y purge mysql-server
   apt-get -y autoremove
 fi
@@ -181,10 +247,14 @@ shopt -s extglob
 # source tree was last modified.
 ALLDEBS="$( find *.deb -maxdepth 0 \( -name "$NAME"'*' -o -name 'php-pear*' -o -name 'libapache2-mod-php5*' \) -newer "$PHPSRCDIR" -type f -print0 | xargs -0 ls -t )"
 # These few will be older than the php5 build dir, but need them
-for EMODS in json apcu; do
-  # Find the newest .deb file in each case
-  ALLDEBS="$ALLDEBS $( ls -t "$NAME"-${EMODS}_*.deb | head -1 )"
-done
+#APC for EMODS in json apcu; do
+#APC   # Find the newest .deb file in each case
+#APC   ALLDEBS="$ALLDEBS $( ls -t "$NAME"-${EMODS}_*.deb | head -1 )"
+#APC done
+if [ "$OSVER" -gt "12" ]; then
+  # Also need json on Ubuntu 14
+  ALLDEBS="$ALLDEBS $( ls -t "$NAME"-json_*.deb | head -1 )"
+fi
 
 # Now from that list of all the relevant ones, find what we want
 PHPDEBS=''
@@ -195,7 +265,8 @@ do
     (php-pear*)
       PHPDEBS="$PHPDEBS $F"
       ;;
-    (php5-@(sqlite|mysqlnd|readline|mbstring|ldap|intl|gd|enchant|curl|cli|common|json|apcu)_*)
+#APC     (php5-@(sqlite|mysqlnd|readline|mbstring|ldap|intl|gd|enchant|curl|cli|common|json|apcu)_*)
+    (php5-@(sqlite|mysqlnd|readline|mbstring|ldap|intl|gd|enchant|curl|cli|common|json)_*)
       PHPDEBS="$PHPDEBS $F"
       ;;
     (libapache2-mod-php5filter*)
@@ -210,16 +281,20 @@ done
 shout Want to install these .deb files:
 shout $(echo $PHPDEBS | sed -e 's/ /\n/')
 pause
+shout
 dpkg --install $PHPDEBS
 shout And imap which we can just install with apt
 apt-get -y install "${NAME}-imap"
-shout And enable the PHP extensions they provide.
-shout 'Do not worry about any "sqlite ini file" warnings,'
-shout as we will be using sqlite3 and not sqlite.
-for MOD in sqlite mysqlnd readline ldap intl gd enchant curl json apcu imap mbstring
-do
-  "${NAME}enmod" -s ALL "$MOD"
-done
+if [ "$OSVER" -gt "12" ]; then
+  shout And enable the PHP extensions they provide.
+  shout 'Do not worry about any sqlite or mbstring "ini file"'
+  shout 'warnings, as we will be using sqlite3 and not sqlite.'
+  #APC for MOD in sqlite mysqlnd readline ldap intl gd enchant curl json apcu imap mbstring
+  for MOD in sqlite mysqlnd readline ldap intl gd enchant curl json imap mbstring
+  do
+    "${NAME}enmod" -s ALL "$MOD"
+  done
+fi
 
 shout
 shout Rebuilding PHP is all done, and you should now have the new packages installed.

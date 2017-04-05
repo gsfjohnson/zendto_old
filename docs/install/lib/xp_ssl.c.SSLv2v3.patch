@@ -1,0 +1,118 @@
+--- ext/openssl/xp_ssl.c	2017-04-01 11:25:23.000000000 +0100
++++ ext/openssl/xp_ssl.c.new	2017-04-01 11:27:59.000000000 +0100
+@@ -328,19 +328,18 @@
+ 			sslsock->is_client = 1;
+ 			method = SSLv23_client_method();
+ 			break;
++#ifndef OPENSSL_NO_SSL2
+ 		case STREAM_CRYPTO_METHOD_SSLv2_CLIENT:
+-#ifdef OPENSSL_NO_SSL2
+-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "SSLv2 support is not compiled into the OpenSSL library PHP is linked against");
+-			return -1;
+-#else
+ 			sslsock->is_client = 1;
+ 			method = SSLv2_client_method();
+ 			break;
+ #endif
++#ifndef OPENSSL_NO_SSL3
+ 		case STREAM_CRYPTO_METHOD_SSLv3_CLIENT:
+ 			sslsock->is_client = 1;
+ 			method = SSLv3_client_method();
+ 			break;
++#endif
+ 		case STREAM_CRYPTO_METHOD_TLS_CLIENT:
+ 			sslsock->is_client = 1;
+ 			method = TLSv1_client_method();
+@@ -349,15 +348,14 @@
+ 			sslsock->is_client = 0;
+ 			method = SSLv23_server_method();
+ 			break;
++#ifndef OPENSSL_NO_SSL3
+ 		case STREAM_CRYPTO_METHOD_SSLv3_SERVER:
+ 			sslsock->is_client = 0;
+ 			method = SSLv3_server_method();
+ 			break;
++#endif
++#ifndef OPENSSL_NO_SSL2
+ 		case STREAM_CRYPTO_METHOD_SSLv2_SERVER:
+-#ifdef OPENSSL_NO_SSL2
+-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "SSLv2 support is not compiled into the OpenSSL library PHP is linked against");
+-			return -1;
+-#else
+ 			sslsock->is_client = 0;
+ 			method = SSLv2_server_method();
+ 			break;
+@@ -391,18 +389,6 @@
+ 	}
+ #endif
+ 
+-#if OPENSSL_VERSION_NUMBER >= 0x0090806fL
+-	{
+-		zval **val;
+-
+-		if (stream->context && SUCCESS == php_stream_context_get_option(
+-								stream->context, "ssl", "no_ticket", &val) &&
+-						zval_is_true(*val)) {
+-					SSL_CTX_set_options(sslsock->ctx, SSL_OP_NO_TICKET);
+-		}
+-	}
+-#endif
+-
+ 	sslsock->ssl_handle = php_SSL_new_from_context(sslsock->ctx, stream TSRMLS_CC);
+ 	if (sslsock->ssl_handle == NULL) {
+ 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "failed to create an SSL handle");
+@@ -418,8 +404,6 @@
+ 	if (cparam->inputs.session) {
+ 		if (cparam->inputs.session->ops != &php_openssl_socket_ops) {
+ 			php_error_docref(NULL TSRMLS_CC, E_WARNING, "supplied session stream must be an SSL enabled stream");
+- 		} else if (((php_openssl_netstream_data_t*)cparam->inputs.session->abstract)->ssl_handle == NULL) {
+- 			php_error_docref(NULL TSRMLS_CC, E_WARNING, "supplied SSL session stream is not initialized");
+ 		} else {
+ 			SSL_copy_session_id(sslsock->ssl_handle, ((php_openssl_netstream_data_t*)cparam->inputs.session->abstract)->ssl_handle);
+ 		}
+@@ -529,7 +513,6 @@
+ 
+ 			if (FAILURE == php_openssl_apply_verification_policy(sslsock->ssl_handle, peer_cert, stream TSRMLS_CC)) {
+ 				SSL_shutdown(sslsock->ssl_handle);
+-				n = -1;
+ 			} else {	
+ 				sslsock->ssl_active = 1;
+ 
+@@ -654,12 +637,16 @@
+ 				case STREAM_CRYPTO_METHOD_SSLv23_CLIENT:
+ 					sock->method = STREAM_CRYPTO_METHOD_SSLv23_SERVER;
+ 					break;
++#ifndef OPENSSL_NO_SSL2
+ 				case STREAM_CRYPTO_METHOD_SSLv2_CLIENT:
+ 					sock->method = STREAM_CRYPTO_METHOD_SSLv2_SERVER;
+ 					break;
++#endif
++#ifndef OPENSSL_NO_SSL3
+ 				case STREAM_CRYPTO_METHOD_SSLv3_CLIENT:
+ 					sock->method = STREAM_CRYPTO_METHOD_SSLv3_SERVER;
+ 					break;
++#endif
+ 				case STREAM_CRYPTO_METHOD_TLS_CLIENT:
+ 					sock->method = STREAM_CRYPTO_METHOD_TLS_SERVER;
+ 					break;
+@@ -936,17 +923,16 @@
+ 	if (strncmp(proto, "ssl", protolen) == 0) {
+ 		sslsock->enable_on_connect = 1;
+ 		sslsock->method = STREAM_CRYPTO_METHOD_SSLv23_CLIENT;
++#ifndef OPENSSL_NO_SSL2
+ 	} else if (strncmp(proto, "sslv2", protolen) == 0) {
+-#ifdef OPENSSL_NO_SSL2
+-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "SSLv2 support is not compiled into the OpenSSL library PHP is linked against");
+-		return NULL;
+-#else
+ 		sslsock->enable_on_connect = 1;
+ 		sslsock->method = STREAM_CRYPTO_METHOD_SSLv2_CLIENT;
+ #endif
++#ifndef OPENSSL_NO_SSL3
+ 	} else if (strncmp(proto, "sslv3", protolen) == 0) {
+ 		sslsock->enable_on_connect = 1;
+ 		sslsock->method = STREAM_CRYPTO_METHOD_SSLv3_CLIENT;
++#endif
+ 	} else if (strncmp(proto, "tls", protolen) == 0) {
+ 		sslsock->enable_on_connect = 1;
+ 		sslsock->method = STREAM_CRYPTO_METHOD_TLS_CLIENT;

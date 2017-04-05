@@ -233,13 +233,19 @@ class Verify {
       $smarty->assign('senderOrg',   $senderOrganization);
       $smarty->assign('senderEmail', $senderEmail);
       $smarty->assign('URL', $NSSDROPBOX_URL."dropoff.php?auth=$auth");
-      $emailSubject = $smarty->getConfigVariable('VerifyEmailSubject');
+      $emailSubject = $smarty->getConfigVars('VerifyEmailSubject');
  
+      $htmltpl = '';
+      if ($smarty->templateExists('verify_email_html.tpl')) {
+        $htmltpl = $smarty->fetch('verify_email_html.tpl');
+      }
+
       $success = $this->_dropbox->deliverEmail(
                    $senderEmail,
-                   $smarty->getConfigVariable('EmailSenderAddress'),
+                   $smarty->getConfigVars('EmailSenderAddress'),
                    $emailSubject,
-                   $smarty->fetch('verify_email.tpl'));
+                   $smarty->fetch('verify_email.tpl'),
+                   $htmltpl);
       if ( $success ) {
         $this->_dropbox->writeToLog(sprintf("address verification email delivered successfully to %s",$senderEmail));
       } else {
