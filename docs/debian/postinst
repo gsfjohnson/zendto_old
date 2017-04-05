@@ -1,0 +1,51 @@
+#!/bin/bash
+
+# Copy the graphs notfound.png into place
+cp /opt/zendto/www/images/notfound.png /var/zendto/rrd/notfound.png
+chmod a+rX /var/zendto/rrd /var/zendto/rrd/notfound.png
+
+# Clean the caches in case Smarty has been upgraded
+rm -rf /var/zendto/templates_c/*php >/dev/null 2>&1
+rm -rf /var/zendto/myzendto.templates_c/*php >/dev/null 2>&1
+rm -rf /var/zendto/cache/*php >/dev/null 2>&1
+
+# Get rid of the obsolete caches if still present
+rm -rf /opt/zendto/templates_c >/dev/null 2>&1
+rm -rf /opt/zendto/myzendto.templates_c >/dev/null 2>&1
+rm -rf /opt/zendto/cache >/dev/null 2>&1
+
+# If the cron jobs aren't already there, add them
+if [ ! -f /etc/cron.d/zendto ]; then
+  cat <<EOCROND > /etc/cron.d/zendto
+# Cron jobs for ZendTo to remove expired drop-offs and update usage graphs
+5 0 * * * root /usr/bin/php /opt/zendto/sbin/cleanup.php /opt/zendto/config/preferences.php >/dev/null 2>&1
+1 1 * * * root /usr/bin/php /opt/zendto/sbin/rrdInit.php /opt/zendto/config/preferences.php 2>&1 | /bin/grep -iv 'illegal attempt to update using time'
+3 3 * * * root /usr/bin/php /opt/zendto/sbin/rrdUpdate.php /opt/zendto/config/preferences.php 2>&1 | sed '$ d' | /bin/grep -v '^[0-9]*x[0-9]*$'
+EOCROND
+  chmod 0644 /etc/cron.d/zendto
+  service cron reload
+fi
+
+# If ZENDTOPREFS is not set in /etc/environment, add it
+if ! grep -q '^ZENDTOPREFS=' /etc/environment; then
+  echo 'ZENDTOPREFS="/opt/zendto/config/preferences.php"' >> /etc/environment
+fi
+
+# Little oddities
+if [ -f /var/zendto/zendto.sqlite ]; then
+  chown www-data /var/zendto/zendto.sqlite
+  chgrp www-data /var/zendto/zendto.sqlite
+  chmod ug+w     /var/zendto/zendto.sqlite
+fi
+
+echo
+echo 'If you are upgrading from a previous version, please make sure your'
+echo 'config files in /opt/zendto/config/* are all up to date.'
+echo
+echo 'To help you, there is a tool for upgrading the preferences.php file.'
+echo 'Simply run'
+echo '    sudo /opt/zendto/bin/upgrade_preferences_php'
+echo 'and it will show you how to use it.'
+echo
+
+exit 0

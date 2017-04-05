@@ -1,0 +1,12 @@
+diff -Naur APC-3.0.19/php_apc.c APC-3.0.19.new/php_apc.c
+--- APC-3.0.19/php_apc.c	2008-05-15 07:45:28.000000000 +0100
++++ APC-3.0.19.new/php_apc.c	2016-11-27 12:18:38.000000000 +0000
+@@ -955,7 +955,7 @@
+ 
+ #ifdef ZEND_ENGINE_2
+ /* {{{ arginfo */
+-static
++/* JKF ZendTo static */
+ ZEND_BEGIN_ARG_INFO(php_apc_fetch_arginfo, 0)
+     ZEND_ARG_INFO(0, "key")
+     ZEND_ARG_INFO(1, "success")

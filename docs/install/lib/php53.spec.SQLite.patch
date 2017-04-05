@@ -1,0 +1,83 @@
+--- php53.spec	2014-10-23 12:42:32.000000000 +0100
++++ php53.spec.new	2016-11-15 16:10:50.000000000 +0000
+@@ -411,6 +411,33 @@
+ The php-intl package contains a dynamic shared object that will add
+ support for using the ICU library to PHP.
+ 
++%package sqlite
++Summary: sqlite
++Group: Development/Languages
++Requires: %{name}-common = %{version}-%{release}
++Provides: php-sqlite
++
++%description sqlite
++The php-sqlite package. Added by www.exteon.ro
++
++%package sqlite3
++Summary: sqlite3
++Group: Development/Languages
++Requires: %{name}-common = %{version}-%{release}
++Provides: php-sqlite3
++
++%description sqlite3
++The php-sqlite3 package. Added by www.exteon.ro
++
++%package mcrypt
++Summary: mcrypt
++Group: Development/Languages
++Requires: %{name}-common = %{version}-%{release}
++Provides: php-mcrypt
++
++%description mcrypt
++The php-mcrypt package. Added by www.exteon.ro
++
+ %prep
+ %setup -q -n php-%{version}
+ 
+@@ -640,8 +667,6 @@
+ 	--enable-ucd-snmp-hack \
+ 	--enable-shmop \
+ 	--enable-calendar \
+-        --without-sqlite \
+-        --without-sqlite3 \
+         --with-libxml-dir=%{_prefix} \
+ 	--enable-xml \
+         --with-system-tzdata \
+@@ -661,6 +686,9 @@
+       --enable-pcntl \
+       --with-imap=shared --with-imap-ssl \
+       --enable-mbstring=shared \
++--with-sqlite=shared \
++--with-sqlite3=shared \
++--with-mcrypt=shared \
+       --enable-mbregex \
+       --with-gd=shared \
+       --enable-bcmath=shared \
+@@ -702,6 +730,9 @@
+       --without-sqlite3 --disable-phar --disable-fileinfo \
+       --disable-json --without-pspell --disable-wddx \
+       --without-curl --disable-posix \
++--without-sqlite \
++--without-sqlite3 \
++--without-mcrypt \
+       --disable-sysvmsg --disable-sysvshm --disable-sysvsem"
+ 
+ # Build Apache module, and the CLI SAPI, /usr/bin/php
+@@ -761,6 +792,7 @@
+ 
+ # Generate files lists and stub .ini files for each subpackage
+ for mod in pgsql mysql mysqli odbc ldap snmp xmlrpc imap \
++sqlite sqlite3 mcrypt \
+     mbstring gd dom xsl soap bcmath dba xmlreader xmlwriter \
+     pdo pdo_mysql pdo_pgsql pdo_odbc pdo_sqlite json zip \
+     phar fileinfo intl pspell curl wddx \
+@@ -879,6 +911,9 @@
+ %files pspell -f files.pspell
+ %files intl -f files.intl
+ %files process -f files.process
++%files sqlite -f files.sqlite
++%files sqlite3 -f files.sqlite3
++%files mcrypt -f files.mcrypt
+ 
+ %changelog
+ * Thu Oct 23 2014 Jan Kaluza <jkaluza@redhat.com> - 5.3.3-26

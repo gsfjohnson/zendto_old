@@ -1,0 +1,27 @@
+module clamd_local 1.0.0;
+
+require {
+class process { execmem };
+class file { read getattr };
+type clamd_t;
+type var_t;
+type sbin_t;
+type httpd_sys_content_t;
+type httpd_sys_script_ro_t;
+type httpd_sys_script_rw_t;
+type httpd_sys_script_ra_t;
+type httpd_unconfined_script_exec_t;
+}
+
+# Enable clamd's JIT compiler
+allow clamd_t self:process execmem;
+
+# Let clamd read certain files/dirs and their attributes
+allow clamd_t var_t:file { read getattr };
+allow clamd_t httpd_sys_content_t:file { read getattr };
+allow clamd_t httpd_sys_script_ro_t:file { read getattr };
+allow clamd_t httpd_sys_script_rw_t:file { read getattr };
+allow clamd_t httpd_sys_script_ra_t:file { read getattr };
+allow clamd_t httpd_unconfined_script_exec_t:file { read getattr };
+allow clamd_t sbin_t:file { read getattr };
+

@@ -1,0 +1,37 @@
+# CentOS repos, to help out RHEL7 which has access to almost nothing
+# if you are on a Classic subscription model.
+
+[centos-base-source]
+name=CentOS-7.2.1511 - Base Sources
+baseurl=http://vault.centos.org/centos/7.2.1511/os/Source/
+# Disable GPG check unless you have the key file
+gpgcheck=0
+enabled=0
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-7
+
+[centos-updates-source]
+name=CentOS-7.2.1511 - Updates Sources
+baseurl=http://vault.centos.org/centos/7.2.1511/updates/Source/
+# Disable GPG check unless you have the key file
+gpgcheck=0
+enabled=0
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-7
+
+[centos-base]
+name=CentOS-7 - Base
+baseurl=http://mirror.centos.org/centos/7/os/$basearch/
+# Disable GPG check unless you have the key file
+gpgcheck=0
+# Intentionally left disabled. Enable just when needed.
+enabled=0
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-7
+
+[centos-updates]
+name=CentOS-7 - Updates
+baseurl=http://mirror.centos.org/centos/7/updates/$basearch/
+# Disable GPG check unless you have the key file
+gpgcheck=0
+# Intentionally left disabled. Enable just when needed.
+enabled=0
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-7
+
