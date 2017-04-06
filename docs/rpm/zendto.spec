@@ -1,4 +1,4 @@
-%define version 4.26
+%define version 4.26-2
 %define release 2
 %define name    zendto
 
@@ -15,7 +15,7 @@ Packager:    Julian Field <ZendTo@Zend.To>
 URL:         http://zend.to/
 AutoReq:     no
 Requires:    httpd, /usr/sbin/clamd
-Source:      ZendTo-%{version}-%{release}.tgz
+Source:      ZendTo-%{version}.tar.bz2
 BuildRoot:   %{_tmppath}/%{name}-root
 BuildArchitectures: noarch
 
@@ -50,8 +50,8 @@ if you wish to, but they are primarily there for your own use.
 %install
 mkdir -p $RPM_BUILD_ROOT
 mkdir -p ${RPM_BUILD_ROOT}/opt
-tar xzf ${RPM_SOURCE_DIR}/ZendTo-%{version}-%{release}.tgz -C ${RPM_BUILD_ROOT}/opt
-mv ${RPM_BUILD_ROOT}/opt/ZendTo-%{version}-%{release} ${RPM_BUILD_ROOT}/opt/zendto
+tar xzf ${RPM_SOURCE_DIR}/ZendTo-%{version}.tar.bz2 -C ${RPM_BUILD_ROOT}/opt
+mv ${RPM_BUILD_ROOT}/opt/ZendTo-%{version} ${RPM_BUILD_ROOT}/opt/zendto
 rm -rf ${RPM_BUILD_ROOT}/opt/zendto/docs/{rpm,debian,upgrade}
 rm -rf ${RPM_BUILD_ROOT}/opt/zendto/templates-v3
 chmod +x     ${RPM_BUILD_ROOT}/opt/zendto/sbin/UPGRADE/*php
