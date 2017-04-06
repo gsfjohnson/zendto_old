@@ -15,7 +15,7 @@ Packager:    Julian Field <ZendTo@Zend.To>
 URL:         http://zend.to/
 AutoReq:     no
 Requires:    httpd, /usr/sbin/clamd
-Source:      ZendTo-%{zendto_version}-%{zendto_version}.tar.bz2
+Source:      ZendTo-%{zendto_version}-%{zendto_release}.tar.bz2
 BuildRoot:   %{_tmppath}/%{name}-root
 BuildArchitectures: noarch
 BuildArch: noarch
