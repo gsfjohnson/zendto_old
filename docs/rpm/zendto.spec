@@ -1,10 +1,10 @@
 %define zendto_version 4.26
 %define zendto_release 2
-%define name    zendto
+%define zendto_name zendto
 
 %define is_fedora %(test -e /etc/fedora-release && echo 1 || echo 0)
 
-Name:        %{name}
+Name:        %{zendto_name}
 Version:     %{zendto_version}
 Release:     %{zendto_release}
 Summary:     Web-based File Transfer and Storage System
@@ -15,8 +15,8 @@ Packager:    Julian Field <ZendTo@Zend.To>
 URL:         http://zend.to/
 AutoReq:     no
 Requires:    httpd, /usr/sbin/clamd
-Source:      ZendTo-%{zendto_version}-%{zendto_release}.tar.bz2
-BuildRoot:   %{_tmppath}/%{name}-root
+Source:      %{zendto_name}-%{zendto_version}-%{zendto_release}.tar.bz2
+BuildRoot:   %{_tmppath}/%{zendto_name}-root
 BuildArchitectures: noarch
 BuildArch: noarch
 
@@ -46,13 +46,13 @@ an easy web-based filestore, in which you can send files to other people
 if you wish to, but they are primarily there for your own use.
 
 %prep
-%setup -q -n ZendTo-%{zendto_version}-%{zendto_release}
+%setup -q -n %{zendto_name}-%{zendto_version}-%{zendto_release}
 
 %build
 
 %install
 mkdir -p ${RPM_BUILD_ROOT}/opt
-mv ${RPM_BUILD_ROOT}/opt/ZendTo-%{zendto_version}-%{zendto_release} ${RPM_BUILD_ROOT}/opt/zendto
+mv ${RPM_BUILD_ROOT}/opt/%{zendto_name}-%{zendto_version}-%{zendto_release} ${RPM_BUILD_ROOT}/opt/zendto
 rm -rf ${RPM_BUILD_ROOT}/opt/zendto/docs/{rpm,debian,upgrade}
 rm -rf ${RPM_BUILD_ROOT}/opt/zendto/templates-v3
 chmod +x     ${RPM_BUILD_ROOT}/opt/zendto/sbin/UPGRADE/*php
