@@ -14,6 +14,7 @@ Vendor:      Julian Field www.zend.to
 Packager:    Julian Field <ZendTo@Zend.To>
 URL:         http://zend.to/
 AutoReq:     no
+BuildRequires: httpd
 Requires:    httpd, /usr/sbin/clamd
 Source:      %{zendto_name}-%{zendto_version}-%{zendto_release}.tar.bz2
 BuildRoot:   %{_tmppath}/%{zendto_name}-root
