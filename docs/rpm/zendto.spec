@@ -1,3 +1,4 @@
+
 %define zendto_version 4.26
 %define zendto_release 2
 %define zendto_name zendto
@@ -14,7 +15,6 @@ Vendor:      Julian Field www.zend.to
 Packager:    Julian Field <ZendTo@Zend.To>
 URL:         http://zend.to/
 AutoReq:     no
-BuildRequires: httpd
 Requires:    httpd, /usr/sbin/clamd
 Source:      %{zendto_name}-%{zendto_version}-%{zendto_release}.tar.bz2
 BuildRoot:   %{_tmppath}/%{zendto_name}-root
@@ -62,7 +62,7 @@ chmod +x     ${RPM_BUILD_ROOT}/opt/zendto/bin/*php
 chmod +x     ${RPM_BUILD_ROOT}/opt/zendto/bin/upgrade*
 
 mkdir -p ${RPM_BUILD_ROOT}/var/zendto
-chgrp apache ${RPM_BUILD_ROOT}/var/zendto
+# chgrp apache ${RPM_BUILD_ROOT}/var/zendto
 chmod g+w ${RPM_BUILD_ROOT}/var/zendto
 
 mkdir -p ${RPM_BUILD_ROOT}/etc/cron.d
@@ -183,6 +183,9 @@ exit 0
 /opt/zendto/www
 /opt/zendto/sql
 /opt/zendto/myzendto.www
+
+%attr(755,root,apache) %dir /var/zendto
+
 %config(noreplace) %attr(755,root,root)     %dir /opt/zendto/www/css
 %config(noreplace) %attr(644,root,root)     /opt/zendto/www/css/local.css
 %config(noreplace) %attr(755,root,root)     %dir /opt/zendto/www/images/swish
