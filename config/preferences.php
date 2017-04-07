@@ -313,6 +313,7 @@ $NSSDROPBOX_PREFS = array(
   // 'authLDAPBindDn'        => 'o=MyOrganization,uid=MyUser',
   // 'authLDAPBindPass'      => 'SecretPassword',
   // 'authLDAPOrganization'  => 'My Organization',
+  // 'authLDAPUsernameAttr'  => 'uid',
   // This is the list of LDAP properties used to build the user's full name
   // 'authLDAPFullName'      => 'givenName sn',
   // If both these 2 settings are set, then the users must be members of this

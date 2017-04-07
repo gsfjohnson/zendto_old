@@ -50,6 +50,7 @@ class NSSLDAPAuthenticator extends NSSAuthenticator {
   protected $_ldapFullName = 'givenName sn';
   protected $_ldapDn = NULL;
   protected $_ldapPass = NULL;
+  protected $_ldapUNAttr = 'uid';
   protected $_ldapMemberKey = NULL;
   protected $_ldapMemberRole = NULL;
   protected $_ldapOrg = NULL;
@@ -75,6 +76,7 @@ class NSSLDAPAuthenticator extends NSSAuthenticator {
     $this->_ldapFullName  = $prefs['authLDAPFullName'];
     $this->_ldapDn        = $prefs['authLDAPBindDn'];
     $this->_ldapPass      = $prefs['authLDAPBindPass'];
+    $this->_ldapUNAttr    = $prefs['authLDAPUsernameAttr'];
     // User must be member of LDAPMemberRole, key name is LDAPMemberKey
     $this->_ldapMemberKey = strtolower($prefs['authLDAPMemberKey']);
     $this->_ldapMemberRole= strtolower($prefs['authLDAPMemberRole']);
@@ -131,7 +133,7 @@ class NSSLDAPAuthenticator extends NSSAuthenticator {
     @function validUsername
     
     Does an anonymous bind to one of the LDAP servers and searches for the
-    first record that matches "uid=$uname".
+    first record that matches "$this->_ldapUNAttr=$uname".
   */
   public function validUsername(
     $uname,
@@ -166,7 +168,7 @@ class NSSLDAPAuthenticator extends NSSAuthenticator {
         $attributeNames[] = $this->_ldapMemberKey;
       }
 
-      $ldapSearch = ldap_search($ldapConn, $this->_ldapBase, "uid=$uname", $attributeNames);
+      $ldapSearch = ldap_search($ldapConn, $this->_ldapBase, $this->_ldapUNAttr."=$uname", $attributeNames);
       if ( $ldapSearch && ($ldapEntry = ldap_first_entry($ldapConn,$ldapSearch)) && ($ldapDN = ldap_get_dn($ldapConn,$ldapEntry)) ) {
         //  We got a result and a DN for the user in question, so
         //  that means s/he exists!
@@ -236,7 +238,7 @@ class NSSLDAPAuthenticator extends NSSAuthenticator {
     @function authenticate
     
     Does an anonymous bind to one of the LDAP servers and searches for the
-    first record that matches "uid=$uname".  Once that record is found, its
+    first record that matches "$this->_ldapUNAttr=$uname".  Once that record is found, its
     DN is extracted and we try to re-bind non-anonymously, with the provided
     password.  If it works, voila, the user is authenticated and we return
     all the info from his/her directory entry.
@@ -275,7 +277,7 @@ class NSSLDAPAuthenticator extends NSSAuthenticator {
         $attributeNames[] = $this->_ldapMemberKey;
       }
 
-      $ldapSearch = ldap_search($ldapConn, $this->_ldapBase, "uid=$uname", $attributeNames);
+      $ldapSearch = ldap_search($ldapConn, $this->_ldapBase, $this->_ldapUNAttr."=$uname", $attributeNames);
       if ( $ldapSearch && ($ldapEntry = ldap_first_entry($ldapConn,$ldapSearch)) && ($ldapDN = ldap_get_dn($ldapConn,$ldapEntry)) ) {
         //  We got a result and a DN for the user in question, so
         //  try binding as the user now:

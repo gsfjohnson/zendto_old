@@ -1,4 +1,3 @@
-
 %define zendto_version 4.26
 %define zendto_release 2
 %define zendto_name zendto
@@ -63,7 +62,7 @@ chmod +x     ${RPM_BUILD_ROOT}/opt/zendto/bin/upgrade*
 
 mkdir -p ${RPM_BUILD_ROOT}/var/zendto
 # chgrp apache ${RPM_BUILD_ROOT}/var/zendto
-chmod g+w ${RPM_BUILD_ROOT}/var/zendto
+# chmod g+w ${RPM_BUILD_ROOT}/var/zendto
 
 mkdir -p ${RPM_BUILD_ROOT}/etc/cron.d
 cat > ${RPM_BUILD_ROOT}/etc/cron.d/zendto <<EOF3
@@ -153,29 +152,28 @@ fi
 exit 0
 
 %postun
-if [ "$1" -ge "1" ]; then
-  # We are being upgraded or replaced, not deleted
-  # Clean the caches in case Smarty has been upgraded
-  rm -f /var/zendto/templates_c/*php >/dev/null 2>&1
-  rm -f /var/zendto/myzendto.templates_c/*php >/dev/null 2>&1
-  rm -f /var/zendto/cache/*php >/dev/null 2>&1
-  if systemctl --version >/dev/null 2>&1; then
-    systemctl reload crond.service
-  else
-    service crond reload
-  fi
-  echo 'Please ensure your /opt/zendto/config/* files are up to date.'
-  echo
-  echo 'To help you, there are tools for upgrading the preferences.php and
-  echo 'zendto.conf files.'
-  echo 'Simply run'
-  echo '    /opt/zendto/bin/upgrade_preferences_php'
-  echo 'and'
-  echo '    /opt/zendto/bin/upgrade_zendto_conf'
-  echo 'and they will show you how to use them.'
-  echo
+[ "$1" -lt "1" ] && exit 0
+# We are being upgraded or replaced, not deleted
+# Clean the caches in case Smarty has been upgraded
+rm -f /var/zendto/templates_c/*php >/dev/null 2>&1
+rm -f /var/zendto/myzendto.templates_c/*php >/dev/null 2>&1
+rm -f /var/zendto/cache/*php >/dev/null 2>&1
+if systemctl --version >/dev/null 2>&1; then
+  systemctl reload crond.service
+else
+  service crond reload
 fi
-exit 0
+echo 'Please ensure your /opt/zendto/config/* files are up to date.'
+echo
+echo 'To help you, there are tools for upgrading the preferences.php and
+echo 'zendto.conf files.'
+echo 'Simply run'
+echo '    /opt/zendto/bin/upgrade_preferences_php'
+echo 'and'
+echo '    /opt/zendto/bin/upgrade_zendto_conf'
+echo 'and they will show you how to use them.'
+echo
+
 
 %files
 %attr(755,root,root) %dir /opt/zendto
@@ -184,7 +182,7 @@ exit 0
 /opt/zendto/sql
 /opt/zendto/myzendto.www
 
-%attr(755,root,apache) %dir /var/zendto
+%attr(775,root,apache) %dir /var/zendto
 
 %config(noreplace) %attr(755,root,root)     %dir /opt/zendto/www/css
 %config(noreplace) %attr(644,root,root)     /opt/zendto/www/css/local.css
