@@ -70,17 +70,31 @@ class NSSLDAPAuthenticator extends NSSAuthenticator {
     }
     parent::__construct($prefs, $db);
     
-    $this->_ldapServers   = $prefs['authLDAPServers'];
-    $this->_ldapBase      = $prefs['authLDAPBaseDN'];
-    $this->_ldapUseSSL    = $prefs['authLDAPUseSSL'];
-    $this->_ldapFullName  = $prefs['authLDAPFullName'];
-    $this->_ldapDn        = $prefs['authLDAPBindDn'];
-    $this->_ldapPass      = $prefs['authLDAPBindPass'];
-    $this->_ldapUNAttr    = $prefs['authLDAPUsernameAttr'];
-    // User must be member of LDAPMemberRole, key name is LDAPMemberKey
-    $this->_ldapMemberKey = strtolower($prefs['authLDAPMemberKey']);
-    $this->_ldapMemberRole= strtolower($prefs['authLDAPMemberRole']);
-    $this->_ldapOrg       = trim($prefs['authLDAPOrganization']);
+    $arrPrefKeys = array(
+       '_ldapServers'     => 'authLDAPServers'
+      ,'_ldapBase'        => 'authLDAPBaseDN'
+      ,'_ldapUseSSL'      => 'authLDAPUseSSL'
+      ,'_ldapFullName'    => 'authLDAPFullName'
+      ,'_ldapDn'          => 'authLDAPBindDn'
+      ,'_ldapPass'        => 'authLDAPBindPass'
+      ,'_ldapUNAttr'      => 'authLDAPUsernameAttr'
+      ,'_ldapMemberKey'   => 'authLDAPMemberKey'
+      ,'_ldapMemberRole'  => 'authLDAPMemberRole'
+      ,'_ldapOrg'         => 'authLDAPOrganization'
+    );
+    foreach ($arrPrefKeys as $akey => $pkey) {
+      switch ($pkey) {
+        case 'authLDAPMemberKey':
+        case 'authLDAPMemberRole':
+          isset($prefs[$pkey]) ? $this->$akey = strtolower($prefs[$pkey]) :;
+          break;
+        case 'authLDAPOrganization':
+          isset($prefs[$pkey]) ? $this->$akey = trim($prefs[$pkey]) :;
+          break;
+        default:
+          isset($prefs[$pkey]) ? $this->$akey = $prefs[$pkey] :;
+      }
+    }
 
   }
   
