@@ -86,13 +86,13 @@ class NSSLDAPAuthenticator extends NSSAuthenticator {
       switch ($pkey) {
         case 'authLDAPMemberKey':
         case 'authLDAPMemberRole':
-          isset($prefs[$pkey]) ? $this->$akey = strtolower($prefs[$pkey]) :;
+          if (isset($prefs[$pkey])) $this->$akey = strtolower($prefs[$pkey]);
           break;
         case 'authLDAPOrganization':
-          isset($prefs[$pkey]) ? $this->$akey = trim($prefs[$pkey]) :;
+          if (isset($prefs[$pkey])) $this->$akey = trim($prefs[$pkey]);
           break;
         default:
-          isset($prefs[$pkey]) ? $this->$akey = $prefs[$pkey] :;
+          if (isset($prefs[$pkey])) $this->$akey = $prefs[$pkey];
       }
     }
 
