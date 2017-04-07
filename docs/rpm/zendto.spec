@@ -51,8 +51,8 @@ if you wish to, but they are primarily there for your own use.
 %build
 
 %install
-mkdir -p ${RPM_BUILD_ROOT}/opt
-mv ${RPM_BUILD_ROOT}/opt/%{zendto_name}-%{zendto_version}-%{zendto_release} ${RPM_BUILD_ROOT}/opt/zendto
+mkdir -p ${RPM_BUILD_ROOT}/opt/zendto
+mv * ${RPM_BUILD_ROOT}/opt/zendto/
 rm -rf ${RPM_BUILD_ROOT}/opt/zendto/docs/{rpm,debian,upgrade}
 rm -rf ${RPM_BUILD_ROOT}/opt/zendto/templates-v3
 chmod +x     ${RPM_BUILD_ROOT}/opt/zendto/sbin/UPGRADE/*php
