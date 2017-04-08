@@ -46,7 +46,8 @@ class NSSLDAPAuthenticator extends NSSAuthenticator {
   //  Instance data:
   protected $_ldapServers = NULL;
   protected $_ldapBase = NULL;
-  protected $_ldapUseSSL = NULL;
+  protected $_ldapUseSSL = true;
+  protected $_ldapStartTLS = false;
   protected $_ldapFullName = 'givenName sn';
   protected $_ldapDn = NULL;
   protected $_ldapPass = NULL;
@@ -74,6 +75,7 @@ class NSSLDAPAuthenticator extends NSSAuthenticator {
        '_ldapServers'     => 'authLDAPServers'
       ,'_ldapBase'        => 'authLDAPBaseDN'
       ,'_ldapUseSSL'      => 'authLDAPUseSSL'
+      ,'_ldapStartTLS'    => 'authLDAPStartTLS'
       ,'_ldapFullName'    => 'authLDAPFullName'
       ,'_ldapDn'          => 'authLDAPBindDn'
       ,'_ldapPass'        => 'authLDAPBindPass'
@@ -160,17 +162,18 @@ class NSSLDAPAuthenticator extends NSSAuthenticator {
     
     //  Bind to one of our LDAP servers:
     foreach ( $this->_ldapServers as $ldapServer ) {
-      //if($this->_ldapUseSSL){$ldapServer="ldaps://".$ldapServer;}
+      if ( $this->_ldapUseSSL === true && $this->_ldapStartTLS !== true ) {
+        $ldapServer = "ldaps://". $ldapServer;
+      }
       if ( $ldapConn = ldap_connect($ldapServer) ) {
         //  Set the protocol to 3 only:
         ldap_set_option($ldapConn,LDAP_OPT_PROTOCOL_VERSION,3);
         
         //  Connection made, now attempt to start TLS and bind anonymously:
         //  Only do start_tls if ldapUseSSL is false
-        if ( !$this->_ldapUseSSL || ldap_start_tls($ldapConn) ) {
-          if ( $ldapBind = @ldap_bind($ldapConn, $this->_ldapDn, $this->_ldapPass) ) {
-            break;
-          }
+        if ( $this->_ldapStartTLS === true ) ldap_start_tls($ldapConn);
+        if ( $ldapBind = @ldap_bind($ldapConn, $this->_ldapDn, $this->_ldapPass) ) {
+          break;
         }
       }
     }
@@ -269,17 +272,18 @@ class NSSLDAPAuthenticator extends NSSAuthenticator {
     
     //  Bind to one of our LDAP servers:
     foreach ( $this->_ldapServers as $ldapServer ) {
-      //if($this->_ldapUseSSL){$ldapServer="ldaps://".$ldapServer;}
+      if ( $this->_ldapUseSSL === true && $this->_ldapStartTLS !== true ) {
+        $ldapServer = "ldaps://". $ldapServer;
+      }
       if ( $ldapConn = ldap_connect($ldapServer) ) {
         //  Set the protocol to 3 only:
         ldap_set_option($ldapConn,LDAP_OPT_PROTOCOL_VERSION,3);
         
         //  Connection made, now attempt to start TLS and bind anonymously:
         //  Only do start_tls if ldapUseSSL is false
-        if ( !$this->_ldapUseSSL || ldap_start_tls($ldapConn) ) {
-          if ( $ldapBind = @ldap_bind($ldapConn, $this->_ldapDn, $this->_ldapPass) ) {
-            break;
-          }
+        if ( $this->_ldapStartTLS === true ) ldap_start_tls($ldapConn);
+        if ( $ldapBind = @ldap_bind($ldapConn, $this->_ldapDn, $this->_ldapPass) ) {
+          break;
         }
       }
     }
