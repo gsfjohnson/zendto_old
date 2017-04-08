@@ -49,8 +49,8 @@ class NSSLDAPAuthenticator extends NSSAuthenticator {
   protected $_ldapUseSSL = true;
   protected $_ldapStartTLS = false;
   protected $_ldapFullName = 'givenName sn';
-  protected $_ldapDn = NULL;
-  protected $_ldapPass = NULL;
+  protected $_ldapBindUser = NULL;
+  protected $_ldapBindPass = NULL;
   protected $_ldapUNAttr = 'uid';
   protected $_ldapMemberKey = NULL;
   protected $_ldapMemberRole = NULL;
@@ -77,8 +77,8 @@ class NSSLDAPAuthenticator extends NSSAuthenticator {
       ,'_ldapUseSSL'      => 'authLDAPUseSSL'
       ,'_ldapStartTLS'    => 'authLDAPStartTLS'
       ,'_ldapFullName'    => 'authLDAPFullName'
-      ,'_ldapDn'          => 'authLDAPBindDn'
-      ,'_ldapPass'        => 'authLDAPBindPass'
+      ,'_ldapBindUser'    => 'authLDAPBindUser'
+      ,'_ldapBindPass'    => 'authLDAPBindPass'
       ,'_ldapUNAttr'      => 'authLDAPUsernameAttr'
       ,'_ldapMemberKey'   => 'authLDAPMemberKey'
       ,'_ldapMemberRole'  => 'authLDAPMemberRole'
@@ -172,7 +172,7 @@ class NSSLDAPAuthenticator extends NSSAuthenticator {
         //  Connection made, now attempt to start TLS and bind anonymously:
         //  Only do start_tls if ldapUseSSL is false
         if ( $this->_ldapStartTLS === true ) ldap_start_tls($ldapConn);
-        if ( $ldapBind = @ldap_bind($ldapConn, $this->_ldapDn, $this->_ldapPass) ) {
+        if ( $ldapBind = @ldap_bind($ldapConn, $this->_ldapBindUser, $this->_ldapBindPass) ) {
           break;
         }
       }
@@ -223,6 +223,7 @@ class NSSLDAPAuthenticator extends NSSAuthenticator {
           // Do the authorisation check. User must be a member of a group.
           $authorisationPassed = TRUE;
           if ($this->_ldapMemberKey != '' && $this->_ldapMemberRole != '') {
+            //error_log('checking authorization against '. $this->_ldapMemberKey . ' and '. $this->_ldapMemberRole);
             $authorisationPassed = FALSE;
             foreach ($groups as $group) {
               if (strtolower($group) == $this->_ldapMemberRole) {
@@ -246,6 +247,7 @@ class NSSLDAPAuthenticator extends NSSAuthenticator {
     if ( $ldapConn ) {
       ldap_close($ldapConn);
     }
+    //error_log('NSSLDAPAuthenticator->validUsername returns: '. ($result===true?'true':'not true') );
     return $result;
   }
   
@@ -282,7 +284,8 @@ class NSSLDAPAuthenticator extends NSSAuthenticator {
         //  Connection made, now attempt to start TLS and bind anonymously:
         //  Only do start_tls if ldapUseSSL is false
         if ( $this->_ldapStartTLS === true ) ldap_start_tls($ldapConn);
-        if ( $ldapBind = @ldap_bind($ldapConn, $this->_ldapDn, $this->_ldapPass) ) {
+        //error_log('NSSLDAPAuthenticator->authenticate 1st stage bind: dn=['. $this->_ldapBindUser .'] pw=['. $this->_ldapBindPass .']');
+        if ( $ldapBind = @ldap_bind($ldapConn, $this->_ldapBindUser, $this->_ldapBindPass) ) {
           break;
         }
       }
@@ -295,10 +298,13 @@ class NSSLDAPAuthenticator extends NSSAuthenticator {
         $attributeNames[] = $this->_ldapMemberKey;
       }
 
-      $ldapSearch = ldap_search($ldapConn, $this->_ldapBase, $this->_ldapUNAttr."=$uname", $attributeNames);
+      $ldapFilter = $this->_ldapUNAttr .'='. $uname;
+      //error_log('NSSLDAPAuthenticator->authenticate ldap_search: base=['. $this->_ldapBase .'] search=['. $ldapFilter .']');
+      $ldapSearch = ldap_search($ldapConn, $this->_ldapBase, $ldapFilter, $attributeNames);
       if ( $ldapSearch && ($ldapEntry = ldap_first_entry($ldapConn,$ldapSearch)) && ($ldapDN = ldap_get_dn($ldapConn,$ldapEntry)) ) {
         //  We got a result and a DN for the user in question, so
         //  try binding as the user now:
+        //error_log('NSSLDAPAuthenticator->authenticate found dn: '. $ldapDN);
         if ( $result = @ldap_bind($ldapConn,$ldapDN,$password) ) {
           if ( $responseArray = ldap_get_attributes($ldapConn,ldap_first_entry($ldapConn,$ldapSearch)) ) {
             $response = array();
@@ -333,6 +339,7 @@ class NSSLDAPAuthenticator extends NSSAuthenticator {
             // Do the authorisation check. User must be a member of a group.
             $authorisationPassed = TRUE;
             if ($this->_ldapMemberKey != '' && $this->_ldapMemberRole != '') {
+              //error_log('checking authorization against '. $this->_ldapMemberKey . ' and '. $this->_ldapMemberRole);
               $authorisationPassed = FALSE;
               foreach ($groups as $group) {
                 if (strtolower($group) == $this->_ldapMemberRole) {
@@ -349,13 +356,18 @@ class NSSLDAPAuthenticator extends NSSAuthenticator {
             parent::authenticate($uname,$password,$response);
           }
         }
+        //else error_log('NSSLDAPAuthenticator->authenticate 2nd stage bind failed');
+        //error_log('NSSLDAPAuthenticator->authenticate 2nd stage bind result: '. ($result===true?'true':'not true') );
       }
+      //else error_log('NSSLDAPAuthenticator->authenticate ldap_search failed');
+
     } else {
       NSSError('Unable to connect to any of the LDAP servers; could not authenticate user.','LDAP Error');
     }
     if ( $ldapConn ) {
       ldap_close($ldapConn);
     }
+    //error_log('NSSLDAPAuthenticator->authenticate returns: '. ($result===true?'true':'not true') );
     return $result;
   }
 
